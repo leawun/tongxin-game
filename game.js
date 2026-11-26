@@ -47,7 +47,7 @@ function joinUrl(){return location.origin+location.pathname+"?join="+roomId;}
 function people(){return Object.keys(conns).length;}
 function voted(){return Object.keys(votes).length;}
 function tallyFromVotes(){var c=[0,0,0,0];for(var k in votes)c[votes[k]]++;return c;}
-function stateMsg(){var q=curQ();return {t:"state",open:S.open,left:(S.open&&S.deadline)?Math.max(0,S.deadline-Date.now()):0,key:S.key,q:q?q.q:"",o:q?q.o:[],img:q&&q.img||"",ans:(!S.open&&S.view==="reveal"&&hasAns(q))?q.ans:-1,label:"第 "+(S.qi+1)+" 題．"+(S.round===1?"第一次作答":"討論後再答"),done:S.view==="result"};}
+function stateMsg(){var q=curQ();return {t:"state",open:S.open,left:(S.open&&S.deadline)?Math.max(0,S.deadline-Date.now()):0,key:S.key,q:q?q.q:"",o:q?q.o:[],img:q&&q.img||"",ans:(!S.open&&S.view==="reveal"&&hasAns(q))?q.ans:-1,label:"第 "+(S.qi+1)+" 題．"+(S.round===1?"第一次作答":"討論後再答"),done:S.view==="result",wait:S.view==="setup"};}
 function broadcast(){var m=stateMsg();for(var id in conns){try{if(conns[id].open)conns[id].send(m);}catch(e){}}}
 function live(){if(onLive)onLive();}
 
@@ -238,7 +238,9 @@ function player(id){
       el("p",{class:"note",text:P.net==="failed"?"請確認主持人的畫面還開著，或改用公司以外的網路（例如手機行動網路）再試一次。":"請稍等幾秒。"}),
       P.net==="failed"?el("button",{class:"primary",onclick:function(){P.tries=0;connect();},text:"重新連線"}):null);return;}
     var st=P.st;
-    if(!st||st.done){add(el("p",{class:"wait",text:st&&st.done?"遊戲結束，謝謝參與！":"已連線，等主持人出題"}),el("p",{class:"note",text:"題目出現時，這裡會自動顯示選項。"}));return;}
+    if(!st||st.wait||(st.done&&!P.played)){if(st&&st.wait)P.played=false;P.key="";P.choice=-1;add(el("p",{class:"wait",text:"成功加入，請等待主持人開始遊戲。"}));return;}
+    if(st.done){add(el("p",{class:"wait",text:"遊戲結束，謝謝參與！"}));return;}
+    P.played=true;
     if(st.key!==P.key){P.key=st.key;P.choice=-1;}
     if(!isOpen()){add(el("p",{class:"wait",text:P.choice>=0?"時間到，你選的是 "+KEYS[P.choice]:"時間到，你這題沒有作答"}),
       P.choice>=0?el("p",{class:"note",text:KEYS[P.choice]+"．"+(st.o[P.choice]||"")}):null,
