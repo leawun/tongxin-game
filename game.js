@@ -97,7 +97,8 @@ setup:function(){
     else{stat.className="status";stat.textContent="正在建立連線…";}};
   onLive();
   var msg=el("p",{class:"note",role:"status"}),eds=el("div",{}),cnt2=el("span",{class:"tag"});
-  function upCount(){cnt2.textContent="目前會玩 "+picks().length+" 題";}
+  var lead=el("p",{class:"lead"});
+  function upCount(){var n=picks().length;cnt2.textContent="目前會玩 "+n+" 題";lead.textContent="總共有"+n+"題，每題作答時間為10秒，有些題目有正確答案，有些則沒有。請根據你的直覺及認知作答。";}
   function drawEditor(){eds.replaceChildren();upCount();
   S.bank.forEach(function(q,qi){
     var cb=el("input",{type:"checkbox",id:"use"+qi,"aria-label":"使用第 "+(qi+1)+" 題"});cb.checked=!q.off;
@@ -128,7 +129,7 @@ setup:function(){
   editor.hidden=true;
   app.append(header("主持人．準備"),
     el("h1",{text:"我們想的，一樣嗎？"}),
-    el("p",{class:"lead",text:"兩個工作情境，每題用手機匿名作答兩次。中間討論 1 分鐘，看團隊的同心指數會不會上升。"}),
+    lead,
     el("div",{class:"panel"},[el("span",{class:"label",text:"用手機掃描加入"}),
       el("div",{class:"join"},[qrBox,el("div",{class:"row",style:"flex-direction:column;align-items:flex-start;gap:10px;min-width:0"},[
         el("div",{class:"row"},[el("span",{text:"已加入"}),cnt,el("span",{text:"人"})]),url,copyBtn,stat,
