@@ -238,7 +238,10 @@ function player(id){
       el("p",{class:"note",text:P.net==="failed"?"請確認主持人的畫面還開著，或改用公司以外的網路（例如手機行動網路）再試一次。":"請稍等幾秒。"}),
       P.net==="failed"?el("button",{class:"primary",onclick:function(){P.tries=0;connect();},text:"重新連線"}):null);return;}
     var st=P.st;
-    if(!st||st.wait||(st.done&&!P.played)){if(st&&st.wait)P.played=false;P.key="";P.choice=-1;add(el("p",{class:"wait",text:"成功加入，請等待主持人開始遊戲。"}));return;}
+    if(st&&st.wait)P.played=false;
+    if(st&&!st.done&&st.open&&st.key&&P.lockAt&&Date.now()<P.lockAt)P.seen=st.key;
+    var mine=st&&!st.done&&st.key&&P.seen===st.key;
+    if(!st||st.wait||(st.done&&!P.played)||(!st.done&&!mine)){P.key="";P.choice=-1;add(el("p",{class:"wait",text:"成功加入，請等待主持人開始遊戲。"}));return;}
     if(st.done){add(el("p",{class:"wait",text:"遊戲結束，謝謝參與！"}));return;}
     P.played=true;
     if(st.key!==P.key){P.key=st.key;P.choice=-1;}
@@ -268,5 +271,8 @@ function player(id){
   }
   function retry(){P.tries++;if(P.tries>3){P.net="failed";render();return;}setTimeout(connect,1500*P.tries);}
   connect();
+  if(MYV&&window.fetch)fetch("./?vc="+Date.now(),{cache:"no-store"}).then(function(r){return r.text()}).then(function(h){var m=h.match(/game\.js\?v=([^"'&]+)/);if(!m||m[1]===MYV)return;
+    var k="tongxin-reload-"+m[1];try{if(sessionStorage.getItem(k))return;sessionStorage.setItem(k,"1");}catch(e){}
+    var u=new URL(location.href);u.searchParams.set("r",Date.now());location.replace(u.toString());}).catch(function(){});
 }
 })();
