@@ -115,7 +115,7 @@ setup:function(){
   onLive();
   var msg=el("p",{class:"note",role:"status"}),eds=el("div",{}),cnt2=el("span",{class:"tag"});
   var lead=el("p",{class:"lead"});
-  function upCount(){var n=picks().length;cnt2.textContent="目前會玩 "+n+" 題";lead.replaceChildren("總共有"+n+"題，每題作答時間為10秒，有些題目有正確答案，有些則沒有。",el("br"),el("strong",{class:"hl",text:"請根據你的直覺及認知作答。"}));}
+  function upCount(){var n=picks().length;cnt2.textContent="目前會玩 "+n+" 題";lead.replaceChildren("總共有"+n+"題，每題作答時間為15秒，有些題目有正確答案，有些則沒有。",el("br"),el("strong",{class:"hl",text:"請根據你的直覺及認知作答。"}));}
   function drawEditor(){eds.replaceChildren();upCount();
   S.bank.forEach(function(q,qi){
     var cb=el("input",{type:"checkbox",id:"use"+qi,"aria-label":"使用第 "+(qi+1)+" 題"});cb.checked=!q.off;
@@ -158,7 +158,7 @@ setup:function(){
       el("button",{id:"editBtn",onclick:function(){editor.hidden=!editor.hidden;this.textContent=editor.hidden?"編輯題目":"收起題目";if(!editor.hidden)editor.scrollIntoView({behavior:"smooth",block:"start"});},text:"編輯題目"})]),msg,editor);
 },
 ask:function(){
-  var q=curQ(),tot=el("span",{text:"/ "+people()+" 人"}),timer=el("div",{class:"timer",text:"0:10"}),done=el("span",{class:"live",text:"0"}),warn=el("p",{class:"note",role:"status"});
+  var q=curQ(),tot=el("span",{text:"/ "+people()+" 人"}),timer=el("div",{class:"timer",text:"0:15"}),done=el("span",{class:"live",text:"0"}),warn=el("p",{class:"note",role:"status"});
   var manualBox=el("div",{class:"tally"}),manualWrap=el("div",{class:"panel"},[el("span",{class:"label",text:"手動輸入各選項人數"}),manualBox]);manualWrap.hidden=true;
   function drawManual(){manualBox.replaceChildren();q.o.forEach(function(t,i){var out=el("output",{text:String(S.counts[i])});
     function set(d){S.manual=true;S.counts[i]=Math.max(0,S.counts[i]+d);out.textContent=String(S.counts[i]);}
@@ -174,8 +174,8 @@ ask:function(){
         el("div",{class:"row"},[el("span",{text:"已作答"}),done,tot]),reveal,
         el("button",{onclick:function(){manualWrap.hidden=!manualWrap.hidden;drawManual();},text:"手動輸入人數"}),warn])
     ]),manualWrap);
-  S.deadline=Date.now()+10000;broadcast();
-  countdown(10,timer,function(){sEnd();timer.textContent="時間到";S.open=false;broadcast();},3);
+  S.deadline=Date.now()+15000;broadcast();
+  countdown(15,timer,function(){sEnd();timer.textContent="時間到";S.open=false;broadcast();},3);
 },
 reveal:function(){
   var q=curQ(),c=S.counts.slice(),idx=indexOf(c);
