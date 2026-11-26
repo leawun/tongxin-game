@@ -221,11 +221,6 @@ result:function(){
     r.ans!=null?(r.skipped?el("div",{class:"index"},[el("b",{class:"okc",text:r.firstRight+"%"})]):vsBlock(r.firstRight+"%",r.secondRight+"%")):null,
     el("span",{class:"label",text:"各選項人數"}),distTable(q,r)]);});
   app.append(header("主持人．結果與復盤"),head,el("div",{class:"stack"},rows),
-    el("div",{class:"grid2"},[
-      el("div",{class:"panel"},[el("span",{class:"label",text:"復盤 1"}),el("p",{class:"q",text:"第一次看到分佈時，哪個答案讓你最意外？"})]),
-      el("div",{class:"panel"},[el("span",{class:"label",text:"復盤 2"}),el("p",{class:"q",text:"工作中，有哪些事我們以為有共識，其實沒有？"})])
-    ]),
-    el("div",{class:"panel"},[el("span",{class:"label",text:"回到提案"}),el("p",{class:"lead",text:"大家原本各有想法，短短一分鐘的對話就讓團隊更一致。正式的團建活動會用貴公司的真實情境，把這種對齊變成日常習慣。"})]),
     el("div",{class:"row"},[el("button",{onclick:function(){go("setup")},text:"重新開始"})]));
 }
 };
