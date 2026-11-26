@@ -126,15 +126,8 @@ setup:function(){
       el("div",{class:"join"},[qrBox,el("div",{class:"row",style:"flex-direction:column;align-items:flex-start;gap:10px;min-width:0"},[
         el("div",{class:"row"},[el("span",{text:"已加入"}),cnt,el("span",{text:"人"})]),url,copyBtn,stat,
         el("p",{class:"note",text:"也可以把連結貼到會議聊天室。每個人的答案只會被計入人數，看不到是誰選的。"})])])]),
-    el("div",{class:"row"},[el("button",{class:"primary",autofocus:"",onclick:function(){if(S.pick.length!==2)return;S.qi=0;S.res=[];go("rules")},text:"大家都加入了，開始"}),
+    el("div",{class:"row"},[el("button",{class:"primary",autofocus:"",onclick:function(){if(S.pick.length!==2)return;S.qi=0;S.res=[];S.round=1;openVoting();go("ask")},text:"大家都加入了，開始第 1 題"}),
       el("button",{onclick:function(){editor.hidden=!editor.hidden},text:"編輯題目"})]),msg,editor);
-},
-rules:function(){
-  app.append(header("主持人．規則"),
-    el("div",{class:"panel"},[el("span",{class:"label",text:"遊戲規則"}),
-      el("p",{class:"q",text:"看完情境，憑直覺在手機上選一個你覺得團隊「應該」怎麼做。"}),
-      el("ul",{class:"plain"},[el("li",{text:"作答完全匿名，畫面上只會出現人數。"}),el("li",{text:"同心指數 = 選最多人的那個選項，佔全隊的百分比。"}),el("li",{text:"沒有標準答案，只看我們有多一致。"})])]),
-    el("div",{class:"row"},[el("button",{class:"primary",autofocus:"",onclick:function(){S.round=1;openVoting();go("ask")},text:"第 1 題"})]));
 },
 ask:function(){
   var q=curQ(),tot=el("span",{text:"/ "+people()+" 人"}),timer=el("div",{class:"timer",text:"0:20"}),done=el("span",{class:"live",text:"0"}),warn=el("p",{class:"note",role:"status"});
