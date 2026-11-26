@@ -42,13 +42,13 @@ function shrink(file,cb){var r=new FileReader();r.onload=function(){var im=new I
   cb(c.toDataURL("image/jpeg",0.8));};im.onerror=function(){cb(null)};im.src=r.result;};r.onerror=function(){cb(null)};r.readAsDataURL(file);}
 var S={view:"setup",bank:loadBank(),pick:[],qi:0,round:1,counts:[0,0,0,0],res:[],tick:null,open:false,key:"",net:"connecting",manual:false};
 var conns={},votes={},peer=null,roomId=null,onLive=null;
-var PL={qi:-1,key:"",deadline:0,open:false,items:[],got:{},onAdd:null};
+var PL={q:"",qi:-1,key:"",deadline:0,open:false,items:[],got:{},onAdd:null};
 
 function joinUrl(){return location.origin+location.pathname+"?join="+roomId;}
 function people(){return Object.keys(conns).length;}
 function voted(){return Object.keys(votes).length;}
 function tallyFromVotes(){var c=[0,0,0,0];for(var k in votes)c[votes[k]]++;return c;}
-function stateMsg(){if(S.view==="pledge"){var pq=S.bank[S.pick[PL.qi]]||{};return {t:"state",pledge:true,pkey:PL.key,pq:pq.q||"",pimg:pq.img||"",popen:PL.open,left:PL.open?Math.max(0,PL.deadline-Date.now()):0,done:false,wait:false};}
+function stateMsg(){if(S.view==="pledge"){return {t:"state",pledge:true,pkey:PL.key,pq:PL.q,pimg:"",popen:PL.open,left:PL.open?Math.max(0,PL.deadline-Date.now()):0,done:false,wait:false};}
   var q=curQ();return {t:"state",open:S.open,left:(S.open&&S.deadline)?Math.max(0,S.deadline-Date.now()):0,key:S.key,q:q?q.q:"",o:q?q.o:[],img:q&&q.img||"",ans:(!S.open&&S.view==="reveal"&&hasAns(q))?q.ans:-1,label:"第 "+(S.qi+1)+" 題．"+(S.round===1?"第一次作答":"討論後再答"),done:S.view==="result",wait:S.view==="setup"};}
 function broadcast(){var m=stateMsg();for(var id in conns){try{if(conns[id].open)conns[id].send(m);}catch(e){}}}
 function live(){if(onLive)onLive();}
@@ -230,14 +230,19 @@ result:function(){
     el("div",{class:"row"},[el("button",{class:"primary big",onclick:function(){go("pledgePick")},text:"我願意的行動"}),el("button",{onclick:function(){go("setup")},text:"重新開始"})]));
 },
 pledgePick:function(){
-  var list=S.res.map(function(r,i){var q=S.bank[S.pick[i]];return el("button",{class:"pickq",onclick:function(){PL.qi=i;PL.key="pl-"+Date.now();PL.items=[];PL.got={};PL.open=true;PL.deadline=Date.now()+60000;go("pledge");}},[el("span",{class:"label",text:"第 "+(i+1)+" 題"}),el("span",{text:q.q})]);});
+  var PKEY="tongxin-game-pledge-q",saved="";try{saved=localStorage.getItem(PKEY)||"";}catch(e){}
+  var ta=el("textarea",{rows:"3",maxlength:"120","aria-label":"題目內容",placeholder:"例如：為了讓團隊更有共識，我願意做的一個行動是？",autofocus:""});ta.value=saved;
+  var msg=el("p",{class:"note",role:"status"});
   app.append(header("主持人．我願意的行動"),el("h1",{text:"我願意的行動"}),
-    el("p",{class:"lead",text:"選一題，請大家用 1 分鐘在手機寫下：面對這個情境，我願意做的一個行動。"}),
-    el("div",{class:"stack"},list),
-    el("div",{class:"row"},[el("button",{onclick:function(){go("result")},text:"回到總結果"})]));
+    el("p",{class:"lead",text:"輸入一個題目，請大家用 1 分鐘在手機寫下自己願意做的行動。"}),
+    el("div",{class:"panel"},[el("span",{class:"label",text:"題目內容"}),ta,msg]),
+    el("div",{class:"row"},[el("button",{class:"primary big",onclick:function(){var q=ta.value.trim();if(!q){msg.textContent="請先輸入題目內容。";ta.focus();return;}
+        try{localStorage.setItem(PKEY,q);}catch(e){}
+        PL.q=q;PL.key="pl-"+Date.now();PL.items=[];PL.got={};PL.open=true;PL.deadline=Date.now()+60000;go("pledge");},text:"開始，倒數 1 分鐘"}),
+      el("button",{onclick:function(){go("result")},text:"回到總結果"})]));
 },
 pledge:function(){
-  var q=S.bank[S.pick[PL.qi]],timer=el("div",{class:"timer",text:fmt((PL.deadline-Date.now())/1000)}),n=el("span",{class:"live",text:String(PL.items.length)});
+  var timer=el("div",{class:"timer",text:fmt((PL.deadline-Date.now())/1000)}),n=el("span",{class:"live",text:String(PL.items.length)});
   var stage=el("div",{class:"bubbles","aria-live":"polite"}),empty=el("p",{class:"note bempty",text:"大家送出的文字會出現在這裡。"});stage.append(empty);
   var bodies=[],cols=["b1","b2","b3"];
   function add(tx){empty.hidden=true;n.textContent=String(PL.items.length);
@@ -253,7 +258,7 @@ pledge:function(){
   PL.onAdd=add;
   app.append(header("主持人．我願意的行動"),
     el("div",{class:"panel plhead"},[
-      el("div",{class:"plq"},[el("span",{class:"label",text:"第 "+(PL.qi+1)+" 題．寫下你願意做的一個行動"}),el("p",{class:"q",text:q.q})]),
+      el("div",{class:"plq"},[el("span",{class:"label",text:"我願意的行動．請在手機上輸入"}),el("p",{class:"q",text:PL.q})]),
       el("div",{class:"plside"},[timer,el("div",{class:"row"},[el("span",{text:"已送出"}),n,el("span",{text:"則"})]),
         el("div",{class:"row"},[el("button",{onclick:function(){PL.open=true;PL.deadline=Date.now()+60000;go("pledge");},text:"再給 1 分鐘"}),
         el("button",{onclick:function(){PL.open=false;PL.onAdd=null;go("result");},text:"回到總結果"})])])
