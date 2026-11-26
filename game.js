@@ -172,10 +172,12 @@ ask:function(){
       el("div",{class:"panel"},[el("span",{class:"label",text:S.round===1?"情境 "+(S.qi+1):"討論後，再答一次"}),q.img?qImg(q.img):null,el("p",{class:"q",text:q.q}),optionList(q)]),
       el("div",{class:"panel"},[el("span",{class:"label",text:"請在手機上作答"}),timer,
         el("div",{class:"row"},[el("span",{text:"已作答"}),done,tot]),reveal,
+        el("button",{onclick:function(){warn.textContent="";startTimer();},text:"重新作答"}),
         el("button",{onclick:function(){manualWrap.hidden=!manualWrap.hidden;drawManual();},text:"手動輸入人數"}),warn])
     ]),manualWrap);
-  S.deadline=Date.now()+15000;broadcast();
-  countdown(15,timer,function(){sEnd();timer.textContent="時間到";S.open=false;broadcast();},3);
+  function startTimer(){clearInterval(S.tick);S.open=true;S.deadline=Date.now()+15000;timer.textContent="0:15";broadcast();
+    countdown(15,timer,function(){sEnd();timer.textContent="時間到";S.open=false;broadcast();},3);}
+  startTimer();
 },
 reveal:function(){
   var q=curQ(),c=S.counts.slice(),idx=indexOf(c);
