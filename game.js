@@ -12,6 +12,7 @@ function popts(){var o={debug:0};var x=window.PEER_OPTS;if(x)for(var k in x)o[k]
 var app=document.getElementById("app");
 var params=new URLSearchParams(location.search);
 var joinId=params.get("join");
+var MYV=((document.currentScript&&document.currentScript.src||"").match(/[?&]v=([^&]+)/)||[])[1]||"";
 
 /* ---------- 共用 ---------- */
 function el(tag,attrs,kids){var n=document.createElement(tag);attrs=attrs||{};
@@ -67,6 +68,12 @@ function startPeer(){
     if(S.net!=="ok"){S.net="failed";live();}});
 }
 
+/* 版本檢查：主持人頁面開著時有新版，就提示或自動更新 */
+var verBar=null;
+function checkVer(){if(!MYV||!window.fetch)return;fetch("./?vc="+Date.now(),{cache:"no-store"}).then(function(r){return r.text()}).then(function(h){var m=h.match(/game\.js\?v=([^"'&]+)/);if(!m||m[1]===MYV)return;
+  if(S.view==="setup"&&people()===0){location.reload();return;}
+  if(verBar)return;verBar=el("div",{class:"verbar",role:"status"},["遊戲有新版本。這一輪玩完後按「重新整理」更新（玩家需要重新掃碼）。",el("button",{text:"現在重新整理",onclick:function(){location.reload();}})]);document.body.appendChild(verBar);}).catch(function(){});}
+checkVer();setInterval(checkVer,60000);
 function go(v){clearInterval(S.tick);onLive=null;S.view=v;app.replaceChildren();V[v]();window.scrollTo(0,0);var f=app.querySelector("[autofocus]");if(f)f.focus();broadcast();}
 function picks(){return S.bank.map(function(q,i){return q.off?-1:i}).filter(function(i){return i>=0});}
 function nextQ(){if(S.qi<S.pick.length-1){S.qi++;S.round=1;openVoting();go("ask");}else go("result");}
