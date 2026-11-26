@@ -30,10 +30,15 @@ button.pickq{display:flex;flex-direction:column;align-items:flex-start;gap:6px;t
 .plside{display:flex;flex-direction:column;gap:10px;align-items:flex-start}.plside .timer{font-size:56px;line-height:1}
 .bubbles{position:relative;height:calc(100vh - 390px);min-height:360px;margin-top:16px;border-radius:16px;background:var(--panel);border:1px solid var(--line);overflow:hidden}
 .bempty{position:absolute;inset:0;display:grid;place-items:center;margin:0}
-.bubble{position:absolute;left:0;top:0;max-width:min(320px,80%);padding:18px 22px;border-radius:32px;font-size:20px;font-weight:700;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;color:#fff;will-change:transform;box-shadow:inset 0 0 24px rgba(255,255,255,.18),0 8px 24px rgba(0,0,0,.3);animation:bpop .5s ease-out}
-.bubble.b1{background:#5a3a36;border:2px solid var(--accent)}
-.bubble.b2{background:#2f4a62;border:2px solid var(--calm)}
-.bubble.b3{background:#2c5245;border:2px solid var(--ok)}
+.bubble{position:absolute;left:0;top:0;border-radius:50%;display:grid;place-items:center;will-change:transform;animation:bpop .6s ease-out;
+  --t:239,143,107;
+  background:radial-gradient(circle at 32% 28%,rgba(255,255,255,.55) 0,rgba(255,255,255,.12) 18%,rgba(255,255,255,0) 32%),
+    radial-gradient(circle at 50% 50%,rgba(var(--t),.10) 55%,rgba(var(--t),.38) 80%,rgba(255,255,255,.55) 100%);
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.35),inset -10px -14px 30px rgba(var(--t),.45),inset 8px 10px 24px rgba(255,255,255,.18),0 10px 30px rgba(0,0,0,.35)}
+.bubble::before{content:"";position:absolute;left:18%;top:10%;width:34%;height:20%;border-radius:50%;background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(255,255,255,0));transform:rotate(-30deg);filter:blur(1px);pointer-events:none}
+.bubble::after{content:"";position:absolute;right:16%;bottom:14%;width:12%;height:8%;border-radius:50%;background:rgba(255,255,255,.6);transform:rotate(-30deg);filter:blur(1px);pointer-events:none}
+.bubble.b1{--t:239,143,107}.bubble.b2{--t:127,180,217}.bubble.b3{--t:108,199,154}
+.btxt{width:70.7%;height:70.7%;display:flex;align-items:center;justify-content:center;text-align:center;font-weight:700;line-height:1.45;color:#fff;white-space:pre-wrap;overflow-wrap:anywhere;overflow:hidden;text-shadow:0 1px 3px rgba(0,0,0,.7);position:relative;z-index:1}
 @keyframes bpop{from{opacity:0;scale:.4}to{opacity:1;scale:1}}
 @media (prefers-reduced-motion:reduce){.bubble{animation:none}}
 .sentx{font-size:18px;color:var(--fg);white-space:pre-wrap}
@@ -149,6 +154,6 @@ button.del:hover{border-color:var(--bad)}
 <div class="wrap" id="app"></div>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="game.js?v=20261126-20"></script>
+<script src="game.js?v=20261126-21"></script>
 </body>
 </html>
