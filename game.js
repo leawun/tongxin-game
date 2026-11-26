@@ -99,7 +99,7 @@ setup:function(){
   onLive();
   var msg=el("p",{class:"note",role:"status"}),eds=el("div",{}),cnt2=el("span",{class:"tag"});
   var lead=el("p",{class:"lead"});
-  function upCount(){var n=picks().length;cnt2.textContent="目前會玩 "+n+" 題";lead.textContent="總共有"+n+"題，每題作答時間為10秒，有些題目有正確答案，有些則沒有。請根據你的直覺及認知作答。";}
+  function upCount(){var n=picks().length;cnt2.textContent="目前會玩 "+n+" 題";lead.replaceChildren("總共有"+n+"題，每題作答時間為10秒，有些題目有正確答案，有些則沒有。",el("br"),el("strong",{class:"hl",text:"請根據你的直覺及認知作答。"}));}
   function drawEditor(){eds.replaceChildren();upCount();
   S.bank.forEach(function(q,qi){
     var cb=el("input",{type:"checkbox",id:"use"+qi,"aria-label":"使用第 "+(qi+1)+" 題"});cb.checked=!q.off;
