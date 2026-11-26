@@ -81,6 +81,15 @@ function distBlock(q,c){var max=Math.max.apply(null,c),tot=c.reduce(function(a,b
   requestAnimationFrame(function(){requestAnimationFrame(function(){d.querySelectorAll("i[data-w]").forEach(function(i){i.style.width=i.getAttribute("data-w")+"%"})})});return d;}
 function hasAns(q){return q&&typeof q.ans==="number"&&q.ans>=0&&q.ans<4;}
 function rightRate(q,c){var t=c.reduce(function(a,b){return a+b},0);return t?Math.round(c[q.ans]/t*100):0;}
+function distTable(q,r){
+  var cols=[{name:r.skipped||!r.second?"作答":"討論前",c:r.first}];if(!r.skipped&&r.second)cols.push({name:"討論後",c:r.second});
+  cols.forEach(function(col){col.t=col.c.reduce(function(a,b){return a+b},0);col.max=Math.max.apply(null,col.c);});
+  var head=el("tr",{},[el("th",{text:"選項"})].concat(cols.map(function(col){return el("th",{class:"num",text:col.name+"（"+col.t+" 人）"})})));
+  var body=q.o.map(function(t,i){var ok=r.ans===i;
+    return el("tr",{class:ok?"correct":""},[el("td",{},[el("span",{class:"k",text:KEYS[i]}),el("span",{class:"opt-t",text:t}),ok?el("span",{class:"anstag",text:"正確答案"}):null])].concat(cols.map(function(col){
+      var n=col.c[i],pc=col.t?Math.round(n/col.t*100):0;
+      return el("td",{class:"num"+(n===col.max&&n>0?" hi":"")},[el("span",{class:"cnt",text:n+" 人"}),el("span",{class:"pct",text:pc+"%"}),el("span",{class:"mini"},[el("i",{style:"width:"+pc+"%"})])]);})));});
+  return el("div",{class:"tbl-wrap"},[el("table",{class:"dtab"},[el("thead",{},[head]),el("tbody",{},body)])]);}
 function vsBlock(a,b){return el("div",{class:"vs"},[el("div",{},[el("div",{class:"num before",text:String(a)}),el("span",{class:"note",text:"討論前"})]),el("span",{class:"arrow",text:"→"}),
   el("div",{},[el("div",{class:"num after",text:String(b)}),el("span",{class:"note",text:"討論後"})])]);}
 function votingOpen(){return S.open&&S.deadline&&Date.now()<S.deadline+300;}
@@ -202,8 +211,9 @@ result:function(){
     el("span",{class:"label",text:"同心指數"}),
     r.skipped?el("div",{},[el("div",{class:"index"},[el("b",{text:String(r.firstIdx)}),el("span",{text:"/ 100"})]),el("p",{class:"note",text:"這題跳過了討論，只作答一次。"})]):vsBlock(r.firstIdx,r.secondIdx),
     r.ans!=null?el("span",{class:"label",text:"答對率（正確答案 "+KEYS[r.ans]+"）"}):null,
-    r.ans!=null?(r.skipped?el("div",{class:"index"},[el("b",{class:"okc",text:r.firstRight+"%"})]):vsBlock(r.firstRight+"%",r.secondRight+"%")):null]);});
-  app.append(header("主持人．結果與復盤"),head,el("div",{class:"grid2"},rows),
+    r.ans!=null?(r.skipped?el("div",{class:"index"},[el("b",{class:"okc",text:r.firstRight+"%"})]):vsBlock(r.firstRight+"%",r.secondRight+"%")):null,
+    el("span",{class:"label",text:"各選項人數"}),distTable(q,r)]);});
+  app.append(header("主持人．結果與復盤"),head,el("div",{class:"stack"},rows),
     el("div",{class:"grid2"},[
       el("div",{class:"panel"},[el("span",{class:"label",text:"復盤 1"}),el("p",{class:"q",text:"第一次看到分佈時，哪個答案讓你最意外？"})]),
       el("div",{class:"panel"},[el("span",{class:"label",text:"復盤 2"}),el("p",{class:"q",text:"工作中，有哪些事我們以為有共識，其實沒有？"})])

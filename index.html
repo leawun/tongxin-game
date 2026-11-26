@@ -111,6 +111,20 @@ input[type=file]{padding:8px}
 button.del{padding:8px 14px;font-size:14px;color:var(--bad);border-color:var(--line)}
 button.del:hover{border-color:var(--bad)}
 .lead .hl{color:var(--accent);font-weight:700}
+.stack{display:flex;flex-direction:column;gap:16px}
+.tbl-wrap{overflow-x:auto}
+.dtab{width:100%;border-collapse:collapse;font-size:15px;font-variant-numeric:tabular-nums}
+.dtab th{font-size:13px;color:var(--muted);font-weight:500;text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+.dtab th.num,.dtab td.num{text-align:right;white-space:nowrap;width:9em}
+.dtab td{padding:8px;border-bottom:1px solid var(--line);vertical-align:middle}
+.dtab td .k{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:6px;background:var(--panel-2);font-family:var(--mono);font-weight:700;font-size:13px;margin-right:8px}
+.dtab tr.correct td .k{background:var(--ok);color:#0e2a1c}
+.dtab .cnt{font-family:var(--mono);font-weight:700}
+.dtab .pct{font-family:var(--mono);color:var(--muted);margin-left:8px;display:inline-block;min-width:3.2em}
+.dtab td.hi .cnt,.dtab td.hi .pct{color:var(--accent)}
+.dtab .mini{display:block;height:4px;background:var(--panel-2);border-radius:2px;margin-top:4px;overflow:hidden}
+.dtab .mini i{display:block;height:100%;background:var(--calm)}
+.dtab td.hi .mini i{background:var(--accent)}
 .wait{font-family:var(--display);font-size:26px;font-weight:700;text-wrap:balance}
 </style>
 </head>
@@ -118,6 +132,6 @@ button.del:hover{border-color:var(--bad)}
 <div class="wrap" id="app"></div>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="game.js?v=20261126-12"></script>
+<script src="game.js?v=20261126-13"></script>
 </body>
 </html>
