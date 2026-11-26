@@ -46,7 +46,7 @@ function joinUrl(){return location.origin+location.pathname+"?join="+roomId;}
 function people(){return Object.keys(conns).length;}
 function voted(){return Object.keys(votes).length;}
 function tallyFromVotes(){var c=[0,0,0,0];for(var k in votes)c[votes[k]]++;return c;}
-function stateMsg(){var q=curQ();return {t:"state",open:S.open,key:S.key,q:q?q.q:"",o:q?q.o:[],img:q&&q.img||"",ans:(!S.open&&S.view==="reveal"&&hasAns(q))?q.ans:-1,label:"第 "+(S.qi+1)+" 題．"+(S.round===1?"第一次作答":"討論後再答"),done:S.view==="result"};}
+function stateMsg(){var q=curQ();return {t:"state",open:S.open,left:(S.open&&S.deadline)?Math.max(0,S.deadline-Date.now()):0,key:S.key,q:q?q.q:"",o:q?q.o:[],img:q&&q.img||"",ans:(!S.open&&S.view==="reveal"&&hasAns(q))?q.ans:-1,label:"第 "+(S.qi+1)+" 題．"+(S.round===1?"第一次作答":"討論後再答"),done:S.view==="result"};}
 function broadcast(){var m=stateMsg();for(var id in conns){try{if(conns[id].open)conns[id].send(m);}catch(e){}}}
 function live(){if(onLive)onLive();}
 
@@ -58,7 +58,7 @@ function startPeer(){
   peer.on("connection",function(c){
     c.on("open",function(){conns[c.peer]=c;sPop();try{c.send(stateMsg());}catch(e){}live();});
     c.on("data",function(d){if(!d||d.t!=="vote")return;
-      if(S.open&&d.key===S.key&&d.c>=0&&d.c<4){votes[c.peer]=d.c;if(!S.manual)S.counts=tallyFromVotes();live();}});
+      if(votingOpen()&&d.key===S.key&&d.c>=0&&d.c<4){votes[c.peer]=d.c;if(!S.manual)S.counts=tallyFromVotes();live();}});
     c.on("close",function(){delete conns[c.peer];live();});
     c.on("error",function(){delete conns[c.peer];live();});
   });
@@ -83,7 +83,8 @@ function hasAns(q){return q&&typeof q.ans==="number"&&q.ans>=0&&q.ans<4;}
 function rightRate(q,c){var t=c.reduce(function(a,b){return a+b},0);return t?Math.round(c[q.ans]/t*100):0;}
 function vsBlock(a,b){return el("div",{class:"vs"},[el("div",{},[el("div",{class:"num before",text:String(a)}),el("span",{class:"note",text:"討論前"})]),el("span",{class:"arrow",text:"→"}),
   el("div",{},[el("div",{class:"num after",text:String(b)}),el("span",{class:"note",text:"討論後"})])]);}
-function openVoting(){S.open=true;S.key=S.qi+"-"+S.round+"-"+Date.now();votes={};S.counts=[0,0,0,0];S.manual=false;}
+function votingOpen(){return S.open&&S.deadline&&Date.now()<S.deadline+300;}
+function openVoting(){S.open=true;S.deadline=0;S.key=S.qi+"-"+S.round+"-"+Date.now();votes={};S.counts=[0,0,0,0];S.manual=false;}
 
 var V={
 setup:function(){
@@ -157,6 +158,7 @@ ask:function(){
         el("div",{class:"row"},[el("span",{text:"已作答"}),done,tot]),reveal,
         el("button",{onclick:function(){manualWrap.hidden=!manualWrap.hidden;drawManual();},text:"手動輸入人數"}),warn])
     ]),manualWrap);
+  S.deadline=Date.now()+10000;broadcast();
   countdown(10,timer,function(){sEnd();timer.textContent="時間到";S.open=false;broadcast();},3);
 },
 reveal:function(){
@@ -216,23 +218,27 @@ go("setup");
 
 /* ================= 玩家手機 ================= */
 function player(id){
-  var P={st:null,choice:-1,key:"",net:"connecting",tries:0},peer=null,conn=null;
+  var P={st:null,choice:-1,key:"",net:"connecting",tries:0,lockAt:0,iv:null},peer=null,conn=null;
+  function isOpen(){return P.st&&P.st.open&&P.lockAt&&Date.now()<P.lockAt;}
   function render(){
-    app.replaceChildren();var box=el("div",{class:"player wrap"});app.append(box);function add(){for(var k=0;k<arguments.length;k++){if(arguments[k])box.append(arguments[k]);}}add(header("匿名作答"));
+    clearInterval(P.iv);app.replaceChildren();var box=el("div",{class:"player wrap"});app.append(box);function add(){for(var k=0;k<arguments.length;k++){if(arguments[k])box.append(arguments[k]);}}add(header("匿名作答"));
     if(P.net!=="ok"){add(el("p",{class:"wait",text:P.net==="failed"?"連不上主持人":"正在連線…"}),
       el("p",{class:"note",text:P.net==="failed"?"請確認主持人的畫面還開著，或改用公司以外的網路（例如手機行動網路）再試一次。":"請稍等幾秒。"}),
       P.net==="failed"?el("button",{class:"primary",onclick:function(){P.tries=0;connect();},text:"重新連線"}):null);return;}
     var st=P.st;
     if(!st||st.done){add(el("p",{class:"wait",text:st&&st.done?"遊戲結束，謝謝參與！":"已連線，等主持人出題"}),el("p",{class:"note",text:"題目出現時，這裡會自動顯示選項。"}));return;}
     if(st.key!==P.key){P.key=st.key;P.choice=-1;}
-    if(!st.open){add(el("p",{class:"wait",text:P.choice>=0?"作答已截止，請看主持人畫面":"請看主持人畫面"}),
-      P.choice>=0?el("p",{class:"note",text:"你選了 "+KEYS[P.choice]+"。"}):null,
+    if(!isOpen()){add(el("p",{class:"wait",text:P.choice>=0?"時間到，你選的是 "+KEYS[P.choice]:"時間到，你這題沒有作答"}),
+      P.choice>=0?el("p",{class:"note",text:KEYS[P.choice]+"．"+(st.o[P.choice]||"")}):null,
+      el("p",{class:"note",text:"請看主持人畫面。"}),
       st.ans>=0?el("p",{class:"q",style:"font-size:22px",text:"正確答案是 "+KEYS[st.ans]+(P.choice>=0?(P.choice===st.ans?"，你答對了！":"，這次沒答對。"):"")}):null);return;}
-    add(el("span",{class:"label",text:st.label}),st.img?qImg(st.img):null,el("p",{class:"q",style:"font-size:24px",text:st.q}),
+    var cd=el("span",{class:"tag",text:"剩 "+Math.ceil((P.lockAt-Date.now())/1000)+" 秒"});
+    P.iv=setInterval(function(){var l=P.lockAt-Date.now();if(l<=0){render();return;}cd.textContent="剩 "+Math.ceil(l/1000)+" 秒";},250);
+    add(el("div",{class:"row"},[el("span",{class:"label",text:st.label}),cd]),st.img?qImg(st.img):null,el("p",{class:"q",style:"font-size:24px",text:st.q}),
       el("div",{class:"vote"},st.o.map(function(t,i){var bt=el("button",{class:P.choice===i?"sel":"",onclick:function(){vote(i)}},[el("span",{class:"k",text:KEYS[i]}),el("span",{text:t})]);return bt;})),
       el("p",{class:"note",text:P.choice>=0?"已送出。時間到之前都可以改選。":"時間到之前都可以改答案，以最後一次選擇為準。答案只會被計入人數，沒有人看得到是誰選的。"}));
   }
-  function vote(i){if(!P.st||!P.st.open)return;P.choice=i;try{conn.send({t:"vote",key:P.key,c:i});}catch(e){}render();}
+  function vote(i){if(!isOpen())return;P.choice=i;try{conn.send({t:"vote",key:P.key,c:i});}catch(e){}render();}
   function connect(){
     if(typeof Peer==="undefined"){P.net="failed";render();return;}
     P.net="connecting";render();
@@ -241,7 +247,7 @@ function player(id){
     peer.on("open",function(){conn=peer.connect(PREFIX+id,{reliable:true});
       var t=setTimeout(function(){if(P.net!=="ok")retry();},10000);
       conn.on("open",function(){clearTimeout(t);P.net="ok";P.tries=0;render();});
-      conn.on("data",function(d){if(d&&d.t==="state"){P.st=d;render();}});
+      conn.on("data",function(d){if(d&&d.t==="state"){if(d.key!==P.key||!d.open)P.lockAt=0;if(d.open&&d.left>0&&(!P.lockAt||d.key!==(P.st&&P.st.key)))P.lockAt=Date.now()+d.left;if(!d.open)P.lockAt=0;P.st=d;render();}});
       conn.on("close",function(){P.net="connecting";render();retry();});
     });
     peer.on("error",function(){retry();});
