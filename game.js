@@ -133,11 +133,11 @@ setup:function(){
       el("div",{class:"join"},[qrBox,el("div",{class:"row",style:"flex-direction:column;align-items:flex-start;gap:10px;min-width:0"},[
         el("div",{class:"row"},[el("span",{text:"已加入"}),cnt,el("span",{text:"人"})]),url,copyBtn,stat,
         el("p",{class:"note",text:"也可以把連結貼到會議聊天室。每個人的答案只會被計入人數，看不到是誰選的。"})])])]),
-    el("div",{class:"row"},[el("button",{class:"primary",autofocus:"",onclick:function(){var pk=picks();if(!pk.length){editor.hidden=false;msg.textContent="請在題庫裡至少勾選 1 題。";return;}
+    el("div",{class:"row"},[el("button",{class:"primary",autofocus:"",onclick:function(){var pk=picks();if(!pk.length){editor.hidden=false;var eb=document.getElementById("editBtn");if(eb)eb.textContent="收起題目";msg.scrollIntoView({block:"center"});msg.textContent="請在題庫裡至少勾選 1 題。";return;}
       var bad=pk.filter(function(i){var q=S.bank[i];return !q.q.trim()||q.o.some(function(o){return !o.trim()})});
-      if(bad.length){editor.hidden=false;msg.textContent="第 "+bad.map(function(i){return i+1}).join("、")+" 題的題目或選項還有空白，請填完或取消勾選。";return;}
+      if(bad.length){editor.hidden=false;var eb=document.getElementById("editBtn");if(eb)eb.textContent="收起題目";msg.scrollIntoView({block:"center"});msg.textContent="第 "+bad.map(function(i){return i+1}).join("、")+" 題的題目或選項還有空白，請填完或取消勾選。";return;}
       S.pick=pk;S.qi=0;S.res=[];S.round=1;openVoting();go("ask")},text:"大家都加入了，開始第 1 題"}),
-      el("button",{onclick:function(){editor.hidden=!editor.hidden},text:"編輯題目"})]),msg,editor);
+      el("button",{id:"editBtn",onclick:function(){editor.hidden=!editor.hidden;this.textContent=editor.hidden?"編輯題目":"收起題目";if(!editor.hidden)editor.scrollIntoView({behavior:"smooth",block:"start"});},text:"編輯題目"})]),msg,editor);
 },
 ask:function(){
   var q=curQ(),tot=el("span",{text:"/ "+people()+" 人"}),timer=el("div",{class:"timer",text:"0:10"}),done=el("span",{class:"live",text:"0"}),warn=el("p",{class:"note",role:"status"});
