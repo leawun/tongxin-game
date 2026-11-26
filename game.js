@@ -46,7 +46,7 @@ function joinUrl(){return location.origin+location.pathname+"?join="+roomId;}
 function people(){return Object.keys(conns).length;}
 function voted(){return Object.keys(votes).length;}
 function tallyFromVotes(){var c=[0,0,0,0];for(var k in votes)c[votes[k]]++;return c;}
-function stateMsg(){var q=curQ();return {t:"state",open:S.open,key:S.key,q:q?q.q:"",o:q?q.o:[],img:q&&q.img||"",label:"第 "+(S.qi+1)+" 題．"+(S.round===1?"第一次作答":"討論後再答"),done:S.view==="result"};}
+function stateMsg(){var q=curQ();return {t:"state",open:S.open,key:S.key,q:q?q.q:"",o:q?q.o:[],img:q&&q.img||"",ans:(!S.open&&S.view==="reveal"&&hasAns(q))?q.ans:-1,label:"第 "+(S.qi+1)+" 題．"+(S.round===1?"第一次作答":"討論後再答"),done:S.view==="result"};}
 function broadcast(){var m=stateMsg();for(var id in conns){try{if(conns[id].open)conns[id].send(m);}catch(e){}}}
 function live(){if(onLive)onLive();}
 
@@ -74,9 +74,11 @@ function countdown(sec,node,done,lowAt){var st=Date.now(),last=-1;S.tick=setInte
   if(lowAt!=null)node.classList.toggle("low",l<=lowAt);var c=Math.ceil(l);if(c!==last&&c<=3&&c>0)sBeep();last=c;if(l<=0){clearInterval(S.tick);done&&done();}},200);}
 function optionList(q){return el("div",{class:"opts"},q.o.map(function(t,i){return el("div",{class:"opt"},[el("span",{class:"k",text:KEYS[i]}),el("span",{text:t})])}));}
 function distBlock(q,c){var max=Math.max.apply(null,c),tot=c.reduce(function(a,b){return a+b},0)||1;
-  var d=el("div",{class:"dist"},q.o.map(function(t,i){return el("div",{class:"drow"+(c[i]===max&&max>0?" top":"")},[el("span",{class:"k",text:KEYS[i]}),
-    el("div",{},[el("div",{class:"txt",text:t}),el("div",{class:"track"},[el("i",{style:"width:0%","data-w":(c[i]/tot*100)})])]),el("span",{class:"n",text:String(c[i])})])}));
+  var d=el("div",{class:"dist"},q.o.map(function(t,i){var ok=hasAns(q)&&q.ans===i;return el("div",{class:"drow"+(c[i]===max&&max>0?" top":"")+(ok?" correct":"")},[el("span",{class:"k",text:ok?"✓":KEYS[i]}),
+    el("div",{},[el("div",{class:"txt"},[t,ok?el("span",{class:"anstag",text:"正確答案"}):null]),el("div",{class:"track"},[el("i",{style:"width:0%","data-w":(c[i]/tot*100)})])]),el("span",{class:"n",text:String(c[i])})])}));
   requestAnimationFrame(function(){requestAnimationFrame(function(){d.querySelectorAll("i[data-w]").forEach(function(i){i.style.width=i.getAttribute("data-w")+"%"})})});return d;}
+function hasAns(q){return q&&typeof q.ans==="number"&&q.ans>=0&&q.ans<4;}
+function rightRate(q,c){var t=c.reduce(function(a,b){return a+b},0);return t?Math.round(c[q.ans]/t*100):0;}
 function vsBlock(a,b){return el("div",{class:"vs"},[el("div",{},[el("div",{class:"num before",text:String(a)}),el("span",{class:"note",text:"討論前"})]),el("span",{class:"arrow",text:"→"}),
   el("div",{},[el("div",{class:"num after",text:String(b)}),el("span",{class:"note",text:"討論後"})])]);}
 function openVoting(){S.open=true;S.key=S.qi+"-"+S.round+"-"+Date.now();votes={};S.counts=[0,0,0,0];S.manual=false;}
@@ -100,6 +102,8 @@ setup:function(){
     var qt=el("textarea",{id:"q"+qi,rows:"2"});qt.value=q.q;qt.addEventListener("input",function(){q.q=qt.value;saveBank()});
     var og=el("div",{class:"optgrid"},q.o.map(function(t,oi){var inp=el("input",{id:"q"+qi+"o"+oi});inp.value=t;
       inp.addEventListener("input",function(){q.o[oi]=inp.value;saveBank()});return el("label",{for:"q"+qi+"o"+oi},["選項 "+KEYS[oi],inp]);}));
+    var as=el("select",{id:"ans"+qi});[["-1","沒有正確答案（看共識）"],["0","A"],["1","B"],["2","C"],["3","D"]].forEach(function(x){var o=el("option",{value:x[0],text:x[1]});if(String(hasAns(q)?q.ans:-1)===x[0])o.selected=true;as.append(o);});
+    as.addEventListener("change",function(){var v=+as.value;if(v>=0)q.ans=v;else delete q.ans;saveBank();});
     var prev=el("div",{class:"imgedit"}),imsg=el("p",{class:"note",role:"status"});
     var fi=el("input",{type:"file",accept:"image/*",id:"img"+qi});
     function drawPrev(){prev.replaceChildren();if(q.img){prev.append(qImg(q.img,"thumb"),el("button",{onclick:function(){delete q.img;saveBank();drawPrev();},text:"移除圖片"}));}}
@@ -109,7 +113,7 @@ setup:function(){
         imsg.textContent="";drawPrev();});});
     drawPrev();
     eds.append(el("div",{class:"qedit"},[el("div",{class:"head"},[cb,el("span",{class:"label",text:"第 "+(qi+1)+" 題"})]),qt,
-      el("label",{for:"img"+qi},["題目圖片（選填）",fi]),prev,imsg,og]));
+      el("label",{for:"img"+qi},["題目圖片（選填）",fi]),prev,imsg,og,el("label",{for:"ans"+qi},["正確答案（選填）",as])]));
   });
   var editor=el("div",{class:"panel"},[el("span",{class:"label",text:"題庫（勾選 2 題，可直接改成客戶的情境）"}),eds,
     el("div",{class:"row"},[el("button",{onclick:function(){S.bank=JSON.parse(JSON.stringify(BANK));S.pick=[0,1];saveBank();go("setup")},text:"還原預設題目"})]),
@@ -154,14 +158,18 @@ ask:function(){
 reveal:function(){
   var q=curQ(),c=S.counts.slice(),idx=indexOf(c);
   if(S.round===1){S.res[S.qi]={first:c,firstIdx:idx};}else{S.res[S.qi].second=c;S.res[S.qi].secondIdx=idx;}
+  if(hasAns(q)){S.res[S.qi].ans=q.ans;if(S.round===1)S.res[S.qi].firstRight=rightRate(q,c);else S.res[S.qi].secondRight=rightRate(q,c);}
   var r=S.res[S.qi],side;
   if(S.round===1){
+    var A=hasAns(q),rr=A?rightRate(q,c):0,topWrong=A&&idx>=60&&c[q.ans]<Math.max.apply(null,c);
     side=el("div",{class:"panel"},[el("span",{class:"label",text:"同心指數"}),el("div",{class:"index"},[el("b",{text:String(idx)}),el("span",{text:"/ 100"})]),
-      el("p",{class:"note",text:idx>=80?"大家想法很接近。討論看看，大家選的理由也一樣嗎？":"想法分散，這很正常。接下來討論 1 分鐘。"}),
+      A?el("span",{class:"label",text:"答對率"}):null,A?el("div",{class:"index"},[el("b",{class:"okc",text:rr+"%"}),el("span",{text:"正確答案是 "+KEYS[q.ans]})]):null,
+      el("p",{class:"note",text:topWrong?"大家很一致，但多數人選的不是正確答案。一致不等於正確，討論看看是哪裡想偏了。":A?(rr>=80?"大部分人都答對了。討論看看，大家的理由一樣嗎？":"答案有落差。接下來討論 1 分鐘，再答一次。"):(idx>=80?"大家想法很接近。討論看看，大家選的理由也一樣嗎？":"想法分散，這很正常。接下來討論 1 分鐘。")}),
       el("button",{class:"primary",autofocus:"",onclick:function(){go("discuss")},text:"開始討論"}),
       el("button",{onclick:function(){S.res[S.qi].skipped=true;if(S.qi===0){S.qi=1;S.round=1;openVoting();go("ask");}else go("result");},text:S.qi===0?"跳過，直接到第 2 題":"跳過，直接看總結果"})]);
   }else{
     side=el("div",{class:"panel"},[el("span",{class:"label",text:"同心指數．討論前後"}),vsBlock(r.firstIdx,r.secondIdx),
+      r.ans!=null?el("span",{class:"label",text:"答對率．討論前後（正確答案 "+KEYS[r.ans]+"）"}):null,r.ans!=null?vsBlock(r.firstRight+"%",r.secondRight+"%"):null,
       el("p",{class:"note",text:r.secondIdx>r.firstIdx?"討論後更一致了。":"指數沒有上升，這正是復盤時值得聊的地方。"}),
       el("button",{class:"primary",autofocus:"",onclick:function(){if(S.qi===0){S.qi=1;S.round=1;openVoting();go("ask");}else go("result");},text:S.qi===0?"第 2 題":"看總結果"})]);
   }
@@ -185,7 +193,10 @@ result:function(){
   var diff=avg("secondIdx")-avg("firstIdx");
   var head=diff>0?el("h1",{},["一分鐘的對話，同心指數提高了 ",el("span",{class:"headline-num",text:diff+" 分"})]):el("h1",{text:"兩題的同心指數"});
   var rows=S.res.map(function(r,i){var q=S.bank[S.pick[i]];return el("div",{class:"panel"},[el("span",{class:"label",text:"第 "+(i+1)+" 題"}),el("p",{text:q.q}),
-    r.skipped?el("div",{},[el("div",{class:"index"},[el("b",{text:String(r.firstIdx)}),el("span",{text:"/ 100"})]),el("p",{class:"note",text:"這題跳過了討論，只作答一次。"})]):vsBlock(r.firstIdx,r.secondIdx)]);});
+    el("span",{class:"label",text:"同心指數"}),
+    r.skipped?el("div",{},[el("div",{class:"index"},[el("b",{text:String(r.firstIdx)}),el("span",{text:"/ 100"})]),el("p",{class:"note",text:"這題跳過了討論，只作答一次。"})]):vsBlock(r.firstIdx,r.secondIdx),
+    r.ans!=null?el("span",{class:"label",text:"答對率（正確答案 "+KEYS[r.ans]+"）"}):null,
+    r.ans!=null?(r.skipped?el("div",{class:"index"},[el("b",{class:"okc",text:r.firstRight+"%"})]):vsBlock(r.firstRight+"%",r.secondRight+"%")):null]);});
   app.append(header("主持人．結果與復盤"),head,el("div",{class:"grid2"},rows),
     el("div",{class:"grid2"},[
       el("div",{class:"panel"},[el("span",{class:"label",text:"復盤 1"}),el("p",{class:"q",text:"第一次看到分佈時，哪個答案讓你最意外？"})]),
@@ -203,16 +214,17 @@ go("setup");
 function player(id){
   var P={st:null,choice:-1,key:"",net:"connecting",tries:0},peer=null,conn=null;
   function render(){
-    app.replaceChildren();var box=el("div",{class:"player wrap"});app.append(box);box.append(header("匿名作答"));
-    if(P.net!=="ok"){box.append(el("p",{class:"wait",text:P.net==="failed"?"連不上主持人":"正在連線…"}),
+    app.replaceChildren();var box=el("div",{class:"player wrap"});app.append(box);function add(){for(var k=0;k<arguments.length;k++){if(arguments[k])box.append(arguments[k]);}}add(header("匿名作答"));
+    if(P.net!=="ok"){add(el("p",{class:"wait",text:P.net==="failed"?"連不上主持人":"正在連線…"}),
       el("p",{class:"note",text:P.net==="failed"?"請確認主持人的畫面還開著，或改用公司以外的網路（例如手機行動網路）再試一次。":"請稍等幾秒。"}),
       P.net==="failed"?el("button",{class:"primary",onclick:function(){P.tries=0;connect();},text:"重新連線"}):null);return;}
     var st=P.st;
-    if(!st||st.done){box.append(el("p",{class:"wait",text:st&&st.done?"遊戲結束，謝謝參與！":"已連線，等主持人出題"}),el("p",{class:"note",text:"題目出現時，這裡會自動顯示選項。"}));return;}
+    if(!st||st.done){add(el("p",{class:"wait",text:st&&st.done?"遊戲結束，謝謝參與！":"已連線，等主持人出題"}),el("p",{class:"note",text:"題目出現時，這裡會自動顯示選項。"}));return;}
     if(st.key!==P.key){P.key=st.key;P.choice=-1;}
-    if(!st.open){box.append(el("p",{class:"wait",text:P.choice>=0?"作答已截止，請看主持人畫面":"請看主持人畫面"}),
-      P.choice>=0?el("p",{class:"note",text:"你選了 "+KEYS[P.choice]+"。"}):null);return;}
-    box.append(el("span",{class:"label",text:st.label}),st.img?qImg(st.img):null,el("p",{class:"q",style:"font-size:24px",text:st.q}),
+    if(!st.open){add(el("p",{class:"wait",text:P.choice>=0?"作答已截止，請看主持人畫面":"請看主持人畫面"}),
+      P.choice>=0?el("p",{class:"note",text:"你選了 "+KEYS[P.choice]+"。"}):null,
+      st.ans>=0?el("p",{class:"q",style:"font-size:22px",text:"正確答案是 "+KEYS[st.ans]+(P.choice>=0?(P.choice===st.ans?"，你答對了！":"，這次沒答對。"):"")}):null);return;}
+    add(el("span",{class:"label",text:st.label}),st.img?qImg(st.img):null,el("p",{class:"q",style:"font-size:24px",text:st.q}),
       el("div",{class:"vote"},st.o.map(function(t,i){return el("button",{class:P.choice===i?"sel":"",onclick:function(){vote(i)}},[el("span",{class:"k",text:KEYS[i]}),el("span",{text:t})]);})),
       el("p",{class:"note",text:P.choice>=0?"已送出。公布結果前都可以改選。":"答案只會被計入人數，沒有人看得到是誰選的。"}));
   }
