@@ -27,13 +27,18 @@ function tone(freqs,dur){try{if(!ac){var C=window.AudioContext||window.webkitAud
 function sBeep(){tone([660],0.12)} function sReveal(){tone([392,523,659,784],0.12)} function sEnd(){tone([440,330,262],0.22)} function sPop(){tone([880],0.06)}
 function rand(n){var c="abcdefghjkmnpqrstuvwxyz23456789",s="";for(var i=0;i<n;i++)s+=c[Math.floor(Math.random()*c.length)];return s;}
 
+function qImg(src,cls){var i=el("img",{class:cls||"qimg",alt:"題目圖片"});i.src=src;return i;}
+
 if(joinId){player(joinId);}else{host();}
 
 /* ================= 主持人 ================= */
 function host(){
 var STORE="tongxin-game-bank-v1";
 function loadBank(){try{var s=localStorage.getItem(STORE);if(s){var b=JSON.parse(s);if(Array.isArray(b)&&b.length===4)return b;}}catch(e){}return JSON.parse(JSON.stringify(BANK));}
-function saveBank(){try{localStorage.setItem(STORE,JSON.stringify(S.bank));}catch(e){}}
+function saveBank(){try{localStorage.setItem(STORE,JSON.stringify(S.bank));return true;}catch(e){return false;}}
+function shrink(file,cb){var r=new FileReader();r.onload=function(){var im=new Image();im.onload=function(){var m=1200,w=im.width,h=im.height,k=Math.min(1,m/Math.max(w,h));
+  var c=document.createElement("canvas");c.width=Math.round(w*k);c.height=Math.round(h*k);var x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);
+  cb(c.toDataURL("image/jpeg",0.8));};im.onerror=function(){cb(null)};im.src=r.result;};r.onerror=function(){cb(null)};r.readAsDataURL(file);}
 var S={view:"setup",bank:loadBank(),pick:[0,1],qi:0,round:1,counts:[0,0,0,0],res:[],tick:null,open:false,key:"",net:"connecting",manual:false};
 var conns={},votes={},peer=null,roomId=null,onLive=null;
 
@@ -41,7 +46,7 @@ function joinUrl(){return location.origin+location.pathname+"?join="+roomId;}
 function people(){return Object.keys(conns).length;}
 function voted(){return Object.keys(votes).length;}
 function tallyFromVotes(){var c=[0,0,0,0];for(var k in votes)c[votes[k]]++;return c;}
-function stateMsg(){var q=curQ();return {t:"state",open:S.open,key:S.key,q:q?q.q:"",o:q?q.o:[],label:"第 "+(S.qi+1)+" 題．"+(S.round===1?"第一次作答":"討論後再答"),done:S.view==="result"};}
+function stateMsg(){var q=curQ();return {t:"state",open:S.open,key:S.key,q:q?q.q:"",o:q?q.o:[],img:q&&q.img||"",label:"第 "+(S.qi+1)+" 題．"+(S.round===1?"第一次作答":"討論後再答"),done:S.view==="result"};}
 function broadcast(){var m=stateMsg();for(var id in conns){try{if(conns[id].open)conns[id].send(m);}catch(e){}}}
 function live(){if(onLive)onLive();}
 
@@ -95,7 +100,16 @@ setup:function(){
     var qt=el("textarea",{id:"q"+qi,rows:"2"});qt.value=q.q;qt.addEventListener("input",function(){q.q=qt.value;saveBank()});
     var og=el("div",{class:"optgrid"},q.o.map(function(t,oi){var inp=el("input",{id:"q"+qi+"o"+oi});inp.value=t;
       inp.addEventListener("input",function(){q.o[oi]=inp.value;saveBank()});return el("label",{for:"q"+qi+"o"+oi},["選項 "+KEYS[oi],inp]);}));
-    eds.append(el("div",{class:"qedit"},[el("div",{class:"head"},[cb,el("span",{class:"label",text:"第 "+(qi+1)+" 題"})]),qt,og]));
+    var prev=el("div",{class:"imgedit"}),imsg=el("p",{class:"note",role:"status"});
+    var fi=el("input",{type:"file",accept:"image/*",id:"img"+qi});
+    function drawPrev(){prev.replaceChildren();if(q.img){prev.append(qImg(q.img,"thumb"),el("button",{onclick:function(){delete q.img;saveBank();drawPrev();},text:"移除圖片"}));}}
+    fi.addEventListener("change",function(){var f=fi.files&&fi.files[0];if(!f)return;imsg.textContent="處理中…";
+      shrink(f,function(d){fi.value="";if(!d){imsg.textContent="這個檔案無法讀取，請換一張 JPG 或 PNG。";return;}
+        var old=q.img;q.img=d;if(!saveBank()){q.img=old;imsg.textContent="圖片太大，瀏覽器存不下。請換小一點的圖，或先移除其他題目的圖片。";return;}
+        imsg.textContent="";drawPrev();});});
+    drawPrev();
+    eds.append(el("div",{class:"qedit"},[el("div",{class:"head"},[cb,el("span",{class:"label",text:"第 "+(qi+1)+" 題"})]),qt,
+      el("label",{for:"img"+qi},["題目圖片（選填）",fi]),prev,imsg,og]));
   });
   var editor=el("div",{class:"panel"},[el("span",{class:"label",text:"題庫（勾選 2 題，可直接改成客戶的情境）"}),eds,
     el("div",{class:"row"},[el("button",{onclick:function(){S.bank=JSON.parse(JSON.stringify(BANK));S.pick=[0,1];saveBank();go("setup")},text:"還原預設題目"})]),
@@ -130,7 +144,7 @@ ask:function(){
     S.open=false;sReveal();go("reveal");},text:"公布結果"});
   app.append(header("主持人．第 "+(S.qi+1)+" 題 / 2．"+(S.round===1?"第一次作答":"討論後再答")),
     el("div",{class:"lockstage"},[
-      el("div",{class:"panel"},[el("span",{class:"label",text:S.round===1?"情境 "+(S.qi+1):"討論後，再答一次"}),el("p",{class:"q",text:q.q}),optionList(q)]),
+      el("div",{class:"panel"},[el("span",{class:"label",text:S.round===1?"情境 "+(S.qi+1):"討論後，再答一次"}),q.img?qImg(q.img):null,el("p",{class:"q",text:q.q}),optionList(q)]),
       el("div",{class:"panel"},[el("span",{class:"label",text:"請在手機上作答"}),timer,
         el("div",{class:"row"},[el("span",{text:"已作答"}),done,tot]),reveal,
         el("button",{onclick:function(){manualWrap.hidden=!manualWrap.hidden;drawManual();},text:"手動輸入人數"}),warn])
@@ -198,7 +212,7 @@ function player(id){
     if(st.key!==P.key){P.key=st.key;P.choice=-1;}
     if(!st.open){box.append(el("p",{class:"wait",text:P.choice>=0?"作答已截止，請看主持人畫面":"請看主持人畫面"}),
       P.choice>=0?el("p",{class:"note",text:"你選了 "+KEYS[P.choice]+"。"}):null);return;}
-    box.append(el("span",{class:"label",text:st.label}),el("p",{class:"q",style:"font-size:24px",text:st.q}),
+    box.append(el("span",{class:"label",text:st.label}),st.img?qImg(st.img):null,el("p",{class:"q",style:"font-size:24px",text:st.q}),
       el("div",{class:"vote"},st.o.map(function(t,i){return el("button",{class:P.choice===i?"sel":"",onclick:function(){vote(i)}},[el("span",{class:"k",text:KEYS[i]}),el("span",{text:t})]);})),
       el("p",{class:"note",text:P.choice>=0?"已送出。公布結果前都可以改選。":"答案只會被計入人數，沒有人看得到是誰選的。"}));
   }
