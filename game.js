@@ -58,7 +58,7 @@ function startPeer(){
   peer.on("connection",function(c){
     c.on("open",function(){conns[c.peer]=c;sPop();try{c.send(stateMsg());}catch(e){}live();});
     c.on("data",function(d){if(!d||d.t!=="vote")return;
-      if(S.open&&d.key===S.key&&d.c>=0&&d.c<4&&!(c.peer in votes)){votes[c.peer]=d.c;if(!S.manual)S.counts=tallyFromVotes();live();}});
+      if(S.open&&d.key===S.key&&d.c>=0&&d.c<4){votes[c.peer]=d.c;if(!S.manual)S.counts=tallyFromVotes();live();}});
     c.on("close",function(){delete conns[c.peer];live();});
     c.on("error",function(){delete conns[c.peer];live();});
   });
@@ -157,7 +157,7 @@ ask:function(){
         el("div",{class:"row"},[el("span",{text:"已作答"}),done,tot]),reveal,
         el("button",{onclick:function(){manualWrap.hidden=!manualWrap.hidden;drawManual();},text:"手動輸入人數"}),warn])
     ]),manualWrap);
-  countdown(10,timer,function(){sEnd();timer.textContent="時間到";},3);
+  countdown(10,timer,function(){sEnd();timer.textContent="時間到";S.open=false;broadcast();},3);
 },
 reveal:function(){
   var q=curQ(),c=S.counts.slice(),idx=indexOf(c);
@@ -229,10 +229,10 @@ function player(id){
       P.choice>=0?el("p",{class:"note",text:"你選了 "+KEYS[P.choice]+"。"}):null,
       st.ans>=0?el("p",{class:"q",style:"font-size:22px",text:"正確答案是 "+KEYS[st.ans]+(P.choice>=0?(P.choice===st.ans?"，你答對了！":"，這次沒答對。"):"")}):null);return;}
     add(el("span",{class:"label",text:st.label}),st.img?qImg(st.img):null,el("p",{class:"q",style:"font-size:24px",text:st.q}),
-      el("div",{class:"vote"},st.o.map(function(t,i){var bt=el("button",{class:P.choice===i?"sel":"",onclick:function(){vote(i)}},[el("span",{class:"k",text:KEYS[i]}),el("span",{text:t})]);if(P.choice>=0)bt.disabled=true;return bt;})),
-      el("p",{class:"note",text:P.choice>=0?"已送出，答案不能再修改。":"選了就不能改，想清楚再按。答案只會被計入人數，沒有人看得到是誰選的。"}));
+      el("div",{class:"vote"},st.o.map(function(t,i){var bt=el("button",{class:P.choice===i?"sel":"",onclick:function(){vote(i)}},[el("span",{class:"k",text:KEYS[i]}),el("span",{text:t})]);return bt;})),
+      el("p",{class:"note",text:P.choice>=0?"已送出。時間到之前都可以改選。":"時間到之前都可以改答案，以最後一次選擇為準。答案只會被計入人數，沒有人看得到是誰選的。"}));
   }
-  function vote(i){if(P.choice>=0)return;P.choice=i;try{conn.send({t:"vote",key:P.key,c:i});}catch(e){}render();}
+  function vote(i){if(!P.st||!P.st.open)return;P.choice=i;try{conn.send({t:"vote",key:P.key,c:i});}catch(e){}render();}
   function connect(){
     if(typeof Peer==="undefined"){P.net="failed";render();return;}
     P.net="connecting";render();
