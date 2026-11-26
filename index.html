@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>同心指數</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@700;900&display=swap">
+<style>
+/* 版面：投票看板。主持人分享寬版畫面；結果以長條與大數字呈現。刻意只用深色一種外觀。 */
+:root{
+  --bg:#141d2b; --panel:#1c2838; --panel-2:#253449; --line:#33465f;
+  --fg:#f0efe9; --muted:#a9b4c3; --accent:#ef8f6b; --accent-ink:#2a1208;
+  --calm:#7fb4d9; --ok:#6cc79a; --bad:#e46d5e;
+  --display:"Noto Serif TC","Songti TC","PMingLiU",serif;
+  --body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.6;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 48px}
+.wrap{max-width:1000px;margin:0 auto;display:flex;flex-direction:column;gap:22px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{font-family:var(--display);font-weight:900;font-size:22px;letter-spacing:.08em;display:flex;align-items:center;gap:10px}
+.brand .rings{width:34px;height:22px;position:relative}
+.brand .rings::before,.brand .rings::after{content:"";position:absolute;top:0;width:22px;height:22px;border-radius:50%;border:3px solid var(--accent)}
+.brand .rings::before{left:0}.brand .rings::after{left:12px;border-color:var(--calm)}
+.step{font-size:13px;letter-spacing:.12em;color:var(--muted)}
+h1{font-family:var(--display);font-weight:900;font-size:clamp(30px,5vw,52px);line-height:1.2;margin:0;text-wrap:balance}
+h2{font-family:var(--display);font-weight:700;font-size:clamp(22px,3vw,30px);margin:0;text-wrap:balance}
+p{margin:0}
+.lead{font-size:clamp(17px,2vw,21px);color:var(--muted);max-width:42em}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--panel-2);color:var(--fg);padding:12px 20px;font-weight:700}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+label{font-size:14px;color:var(--muted);display:flex;flex-direction:column;gap:6px}
+select,input,textarea{font:inherit;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%}
+.label{font-size:13px;letter-spacing:.12em;color:var(--accent);font-weight:700}
+.q{font-family:var(--display);font-size:clamp(26px,3.8vw,40px);font-weight:700;line-height:1.4;text-wrap:balance}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.opt{display:flex;gap:14px;align-items:flex-start;background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:16px;font-size:19px;line-height:1.45}
+.opt .k{flex:none;width:36px;height:36px;border-radius:9px;background:var(--fg);color:var(--bg);font-family:var(--mono);font-weight:700;display:grid;place-items:center}
+.timer{font-family:var(--mono);font-weight:700;font-size:clamp(48px,8vw,88px);line-height:1;font-variant-numeric:tabular-nums}
+.timer.low{color:var(--accent)}
+.tag{display:inline-block;padding:2px 10px;border-radius:99px;background:var(--panel-2);border:1px solid var(--line);font-size:13px;color:var(--muted)}
+.note{font-size:14px;color:var(--muted)}
+ul.plain{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:6px}
+
+/* 計票 */
+.tally{display:flex;flex-direction:column;gap:10px}
+.trow{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:12px;align-items:center}
+.trow .k{width:36px;height:36px;border-radius:9px;background:var(--fg);color:var(--bg);font-family:var(--mono);font-weight:700;display:grid;place-items:center}
+.stepper{display:flex;align-items:center;gap:8px}
+.stepper button{width:44px;height:44px;padding:0;font-size:22px}
+.stepper output{font-family:var(--mono);font-size:26px;font-weight:700;min-width:2ch;text-align:center;font-variant-numeric:tabular-nums}
+
+/* 分佈 */
+.dist{display:flex;flex-direction:column;gap:12px}
+.drow{display:grid;grid-template-columns:36px minmax(0,1fr) 3.5em;gap:12px;align-items:center}
+.drow .k{width:36px;height:36px;border-radius:9px;background:var(--panel-2);font-family:var(--mono);font-weight:700;display:grid;place-items:center}
+.drow .txt{font-size:15px;color:var(--muted);margin-bottom:4px;overflow-wrap:anywhere}
+.drow .track{height:22px;background:var(--panel-2);border-radius:6px;overflow:hidden}
+.drow .track i{display:block;height:100%;background:var(--calm);border-radius:6px;transition:width .8s cubic-bezier(.2,.8,.2,1)}
+.drow.top .track i{background:var(--accent)}
+.drow .n{font-family:var(--mono);font-weight:700;text-align:right;font-size:20px}
+.index{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.index b{font-family:var(--mono);font-size:clamp(56px,9vw,96px);line-height:1;color:var(--accent);font-variant-numeric:tabular-nums}
+.index span{color:var(--muted)}
+.vs{display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:center;text-align:center}
+.vs .num{font-family:var(--mono);font-weight:700;font-size:clamp(44px,7vw,76px);line-height:1;font-variant-numeric:tabular-nums}
+.vs .num.before{color:var(--calm)} .vs .num.after{color:var(--accent)}
+.vs .arrow{font-size:32px;color:var(--muted)}
+.lockstage{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:22px;align-items:start}
+@media (max-width:760px){.lockstage{grid-template-columns:1fr}}
+.qedit{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:14px}
+.qedit .head{display:flex;gap:10px;align-items:center}
+.qedit .head input[type=checkbox]{width:20px;height:20px;flex:none}
+.optgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}
+.headline-num{font-family:var(--mono);color:var(--accent)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* 線上版新增 */
+.join{display:grid;grid-template-columns:auto minmax(0,1fr);gap:24px;align-items:center}
+@media (max-width:640px){.join{grid-template-columns:1fr}}
+.qr{background:#fff;padding:12px;border-radius:12px;width:max-content;max-width:100%}
+.qr img,.qr canvas{display:block;width:200px;height:200px}
+.url{font-family:var(--mono);font-size:15px;overflow-wrap:anywhere;color:var(--fg)}
+.live{font-family:var(--mono);font-weight:700;font-size:28px;color:var(--ok)}
+.status{font-size:14px;color:var(--muted)} .status.bad{color:var(--bad)}
+/* 玩家手機 */
+.player{max-width:520px;margin:0 auto;width:100%}
+.vote{display:flex;flex-direction:column;gap:12px}
+.vote button{display:flex;gap:14px;align-items:center;text-align:left;font-size:19px;font-weight:500;padding:16px;min-height:64px}
+.vote button .k{flex:none;width:38px;height:38px;border-radius:9px;background:var(--fg);color:var(--bg);font-family:var(--mono);font-weight:700;display:grid;place-items:center}
+.vote button.sel{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.vote button.sel .k{background:var(--accent-ink);color:var(--accent)}
+.vote button:disabled{opacity:.55;cursor:default}
+.wait{font-family:var(--display);font-size:26px;font-weight:700;text-wrap:balance}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

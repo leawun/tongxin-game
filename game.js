@@ -1,0 +1,219 @@
+(function(){
+"use strict";
+var KEYS=["A","B","C","D"];
+var BANK=[
+  {q:"客戶在交件前一天臨時改需求，我們團隊第一個反應應該是？",o:["先答應，大家加班趕出來","先評估影響，跟客戶談取捨","依合約婉拒，下次再改","先問主管怎麼決定"]},
+  {q:"專案出包了，檢討會上第一件要談的事是？",o:["誰該負責","怎麼補救","流程哪裡出問題","怎麼跟客戶交代"]},
+  {q:"會議上發現同事報告有明顯錯誤，主管還沒注意到，你會？",o:["當場直接指出","會後私下告訴同事","會後告訴主管","不說，不是我的事"]},
+  {q:"新進同事第三次問同一個問題，團隊應該？",o:["再耐心教一次","請他自己查文件","一起把答案整理成文件","請主管安排訓練"]}
+];
+var PREFIX="tongxin-game-";
+function popts(){var o={debug:0};var x=window.PEER_OPTS;if(x)for(var k in x)o[k]=x[k];return o;}
+var app=document.getElementById("app");
+var params=new URLSearchParams(location.search);
+var joinId=params.get("join");
+
+/* ---------- 共用 ---------- */
+function el(tag,attrs,kids){var n=document.createElement(tag);attrs=attrs||{};
+  for(var k in attrs){if(k==="text")n.textContent=attrs[k];else if(k.slice(0,2)==="on")n.addEventListener(k.slice(2),attrs[k]);else n.setAttribute(k,attrs[k]);}
+  (kids||[]).forEach(function(c){if(c!=null&&c!==false)n.appendChild(typeof c==="string"?document.createTextNode(c):c)});return n;}
+function fmt(s){s=Math.max(0,Math.ceil(s));return Math.floor(s/60)+":"+String(s%60).padStart(2,"0")}
+function header(step){return el("div",{class:"top"},[el("div",{class:"brand"},[el("span",{class:"rings"}),"同心指數"]),step?el("span",{class:"step",text:step}):null]);}
+var ac=null;
+function tone(freqs,dur){try{if(!ac){var C=window.AudioContext||window.webkitAudioContext;if(!C)return;ac=new C();}
+  var t=ac.currentTime;freqs.forEach(function(f,i){var o=ac.createOscillator(),g=ac.createGain();o.type="triangle";o.frequency.value=f;
+  g.gain.setValueAtTime(0.0001,t+i*dur);g.gain.exponentialRampToValueAtTime(0.22,t+i*dur+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t+(i+1)*dur);
+  o.connect(g);g.connect(ac.destination);o.start(t+i*dur);o.stop(t+(i+1)*dur+0.05);});}catch(e){}}
+function sBeep(){tone([660],0.12)} function sReveal(){tone([392,523,659,784],0.12)} function sEnd(){tone([440,330,262],0.22)} function sPop(){tone([880],0.06)}
+function rand(n){var c="abcdefghjkmnpqrstuvwxyz23456789",s="";for(var i=0;i<n;i++)s+=c[Math.floor(Math.random()*c.length)];return s;}
+
+if(joinId){player(joinId);}else{host();}
+
+/* ================= 主持人 ================= */
+function host(){
+var STORE="tongxin-game-bank-v1";
+function loadBank(){try{var s=localStorage.getItem(STORE);if(s){var b=JSON.parse(s);if(Array.isArray(b)&&b.length===4)return b;}}catch(e){}return JSON.parse(JSON.stringify(BANK));}
+function saveBank(){try{localStorage.setItem(STORE,JSON.stringify(S.bank));}catch(e){}}
+var S={view:"setup",bank:loadBank(),pick:[0,1],qi:0,round:1,counts:[0,0,0,0],res:[],tick:null,open:false,key:"",net:"connecting",manual:false};
+var conns={},votes={},peer=null,roomId=null,onLive=null;
+
+function joinUrl(){return location.origin+location.pathname+"?join="+roomId;}
+function people(){return Object.keys(conns).length;}
+function voted(){return Object.keys(votes).length;}
+function tallyFromVotes(){var c=[0,0,0,0];for(var k in votes)c[votes[k]]++;return c;}
+function stateMsg(){var q=curQ();return {t:"state",open:S.open,key:S.key,q:q?q.q:"",o:q?q.o:[],label:"第 "+(S.qi+1)+" 題．"+(S.round===1?"第一次作答":"討論後再答"),done:S.view==="result"};}
+function broadcast(){var m=stateMsg();for(var id in conns){try{if(conns[id].open)conns[id].send(m);}catch(e){}}}
+function live(){if(onLive)onLive();}
+
+function startPeer(){
+  if(typeof Peer==="undefined"){S.net="failed";live();return;}
+  roomId=rand(6);
+  try{peer=new Peer(PREFIX+roomId,popts());}catch(e){S.net="failed";live();return;}
+  peer.on("open",function(){S.net="ok";live();});
+  peer.on("connection",function(c){
+    c.on("open",function(){conns[c.peer]=c;sPop();try{c.send(stateMsg());}catch(e){}live();});
+    c.on("data",function(d){if(!d||d.t!=="vote")return;
+      if(S.open&&d.key===S.key&&d.c>=0&&d.c<4){votes[c.peer]=d.c;if(!S.manual)S.counts=tallyFromVotes();live();}});
+    c.on("close",function(){delete conns[c.peer];live();});
+    c.on("error",function(){delete conns[c.peer];live();});
+  });
+  peer.on("disconnected",function(){try{peer.reconnect();}catch(e){}});
+  peer.on("error",function(e){if(e&&e.type==="unavailable-id"){try{peer.destroy();}catch(_){}startPeer();return;}
+    if(S.net!=="ok"){S.net="failed";live();}});
+}
+
+function go(v){clearInterval(S.tick);onLive=null;S.view=v;app.replaceChildren();V[v]();window.scrollTo(0,0);var f=app.querySelector("[autofocus]");if(f)f.focus();broadcast();}
+function curQ(){return S.bank[S.pick[S.qi]];}
+function indexOf(c){var t=c.reduce(function(a,b){return a+b},0);return t?Math.round(Math.max.apply(null,c)/t*100):0;}
+function countdown(sec,node,done,lowAt){var st=Date.now(),last=-1;S.tick=setInterval(function(){var l=sec-(Date.now()-st)/1000;node.textContent=fmt(l);
+  if(lowAt!=null)node.classList.toggle("low",l<=lowAt);var c=Math.ceil(l);if(c!==last&&c<=3&&c>0)sBeep();last=c;if(l<=0){clearInterval(S.tick);done&&done();}},200);}
+function optionList(q){return el("div",{class:"opts"},q.o.map(function(t,i){return el("div",{class:"opt"},[el("span",{class:"k",text:KEYS[i]}),el("span",{text:t})])}));}
+function distBlock(q,c){var max=Math.max.apply(null,c),tot=c.reduce(function(a,b){return a+b},0)||1;
+  var d=el("div",{class:"dist"},q.o.map(function(t,i){return el("div",{class:"drow"+(c[i]===max&&max>0?" top":"")},[el("span",{class:"k",text:KEYS[i]}),
+    el("div",{},[el("div",{class:"txt",text:t}),el("div",{class:"track"},[el("i",{style:"width:0%","data-w":(c[i]/tot*100)})])]),el("span",{class:"n",text:String(c[i])})])}));
+  requestAnimationFrame(function(){requestAnimationFrame(function(){d.querySelectorAll("i[data-w]").forEach(function(i){i.style.width=i.getAttribute("data-w")+"%"})})});return d;}
+function vsBlock(a,b){return el("div",{class:"vs"},[el("div",{},[el("div",{class:"num before",text:String(a)}),el("span",{class:"note",text:"討論前"})]),el("span",{class:"arrow",text:"→"}),
+  el("div",{},[el("div",{class:"num after",text:String(b)}),el("span",{class:"note",text:"討論後"})])]);}
+function openVoting(){S.open=true;S.key=S.qi+"-"+S.round+"-"+Date.now();votes={};S.counts=[0,0,0,0];S.manual=false;}
+
+var V={
+setup:function(){
+  var qrBox=el("div",{class:"qr"}),url=el("p",{class:"url"}),stat=el("p",{class:"status"}),cnt=el("span",{class:"live",text:"0"});
+  var copyBtn=el("button",{text:"複製連結",onclick:function(){var u=joinUrl();if(navigator.clipboard)navigator.clipboard.writeText(u).then(function(){copyBtn.textContent="已複製"},function(){});}});
+  var drawn=false;
+  onLive=function(){cnt.textContent=String(people());
+    if(S.net==="ok"){stat.className="status";stat.textContent="連線正常，等大家加入。";url.textContent=joinUrl();
+      if(!drawn&&typeof QRCode!=="undefined"){drawn=true;new QRCode(qrBox,{text:joinUrl(),width:200,height:200,correctLevel:QRCode.CorrectLevel.M});}}
+    else if(S.net==="failed"){stat.className="status bad";stat.textContent="手機連線失敗（可能是公司網路擋住了）。仍可改用「比手指」方式，由主持人手動輸入人數。";}
+    else{stat.className="status";stat.textContent="正在建立連線…";}};
+  onLive();
+  var msg=el("p",{class:"note",role:"status"}),eds=el("div",{});
+  S.bank.forEach(function(q,qi){
+    var cb=el("input",{type:"checkbox",id:"use"+qi,"aria-label":"使用第 "+(qi+1)+" 題"});cb.checked=S.pick.indexOf(qi)>=0;
+    cb.addEventListener("change",function(){var p=S.bank.map(function(_,k){return document.getElementById("use"+k).checked?k:-1}).filter(function(k){return k>=0});
+      if(p.length===2){S.pick=p;msg.textContent="";}else{msg.textContent="請剛好勾選 2 題（目前 "+p.length+" 題）。";}});
+    var qt=el("textarea",{id:"q"+qi,rows:"2"});qt.value=q.q;qt.addEventListener("input",function(){q.q=qt.value;saveBank()});
+    var og=el("div",{class:"optgrid"},q.o.map(function(t,oi){var inp=el("input",{id:"q"+qi+"o"+oi});inp.value=t;
+      inp.addEventListener("input",function(){q.o[oi]=inp.value;saveBank()});return el("label",{for:"q"+qi+"o"+oi},["選項 "+KEYS[oi],inp]);}));
+    eds.append(el("div",{class:"qedit"},[el("div",{class:"head"},[cb,el("span",{class:"label",text:"第 "+(qi+1)+" 題"})]),qt,og]));
+  });
+  var editor=el("div",{class:"panel"},[el("span",{class:"label",text:"題庫（勾選 2 題，可直接改成客戶的情境）"}),eds,
+    el("div",{class:"row"},[el("button",{onclick:function(){S.bank=JSON.parse(JSON.stringify(BANK));S.pick=[0,1];saveBank();go("setup")},text:"還原預設題目"})]),
+    el("p",{class:"note",text:"修改會記在這台電腦的瀏覽器裡。"})]);
+  editor.hidden=true;
+  app.append(header("主持人．準備"),
+    el("h1",{text:"我們想的，一樣嗎？"}),
+    el("p",{class:"lead",text:"兩個工作情境，每題用手機匿名作答兩次。中間討論 1 分鐘，看團隊的同心指數會不會上升。"}),
+    el("div",{class:"panel"},[el("span",{class:"label",text:"用手機掃描加入"}),
+      el("div",{class:"join"},[qrBox,el("div",{class:"row",style:"flex-direction:column;align-items:flex-start;gap:10px;min-width:0"},[
+        el("div",{class:"row"},[el("span",{text:"已加入"}),cnt,el("span",{text:"人"})]),url,copyBtn,stat,
+        el("p",{class:"note",text:"也可以把連結貼到會議聊天室。每個人的答案只會被計入人數，看不到是誰選的。"})])])]),
+    el("div",{class:"row"},[el("button",{class:"primary",autofocus:"",onclick:function(){if(S.pick.length!==2)return;S.qi=0;S.res=[];go("rules")},text:"大家都加入了，開始"}),
+      el("button",{onclick:function(){editor.hidden=!editor.hidden},text:"編輯題目"})]),msg,editor);
+},
+rules:function(){
+  app.append(header("主持人．規則"),
+    el("div",{class:"panel"},[el("span",{class:"label",text:"遊戲規則"}),
+      el("p",{class:"q",text:"看完情境，憑直覺在手機上選一個你覺得團隊「應該」怎麼做。"}),
+      el("ul",{class:"plain"},[el("li",{text:"作答完全匿名，畫面上只會出現人數。"}),el("li",{text:"同心指數 = 選最多人的那個選項，佔全隊的百分比。"}),el("li",{text:"沒有標準答案，只看我們有多一致。"})])]),
+    el("div",{class:"row"},[el("button",{class:"primary",autofocus:"",onclick:function(){S.round=1;openVoting();go("ask")},text:"第 1 題"})]));
+},
+ask:function(){
+  var q=curQ(),tot=el("span",{text:"/ "+people()+" 人"}),timer=el("div",{class:"timer",text:"0:20"}),done=el("span",{class:"live",text:"0"}),warn=el("p",{class:"note",role:"status"});
+  var manualBox=el("div",{class:"tally"}),manualWrap=el("div",{class:"panel"},[el("span",{class:"label",text:"手動輸入各選項人數"}),manualBox]);manualWrap.hidden=true;
+  function drawManual(){manualBox.replaceChildren();q.o.forEach(function(t,i){var out=el("output",{text:String(S.counts[i])});
+    function set(d){S.manual=true;S.counts[i]=Math.max(0,S.counts[i]+d);out.textContent=String(S.counts[i]);}
+    manualBox.append(el("div",{class:"trow"},[el("span",{class:"k",text:KEYS[i]}),el("span",{text:t}),
+      el("div",{class:"stepper"},[el("button",{"aria-label":KEYS[i]+" 減 1",onclick:function(){set(-1)},text:"−"}),out,el("button",{"aria-label":KEYS[i]+" 加 1",onclick:function(){set(1)},text:"+"})])]));});}
+  onLive=function(){done.textContent=String(voted());tot.textContent="/ "+people()+" 人";if(!manualWrap.hidden&&!S.manual)drawManual();};
+  var reveal=el("button",{class:"primary",onclick:function(){if(!S.counts.some(Boolean)){warn.textContent="還沒有人作答。手機連不上時，可以按「手動輸入人數」。";return;}
+    S.open=false;sReveal();go("reveal");},text:"公布結果"});
+  app.append(header("主持人．第 "+(S.qi+1)+" 題 / 2．"+(S.round===1?"第一次作答":"討論後再答")),
+    el("div",{class:"lockstage"},[
+      el("div",{class:"panel"},[el("span",{class:"label",text:S.round===1?"情境 "+(S.qi+1):"討論後，再答一次"}),el("p",{class:"q",text:q.q}),optionList(q)]),
+      el("div",{class:"panel"},[el("span",{class:"label",text:"請在手機上作答"}),timer,
+        el("div",{class:"row"},[el("span",{text:"已作答"}),done,tot]),reveal,
+        el("button",{onclick:function(){manualWrap.hidden=!manualWrap.hidden;drawManual();},text:"手動輸入人數"}),warn])
+    ]),manualWrap);
+  countdown(20,timer,function(){sEnd();timer.textContent="時間到";},5);
+},
+reveal:function(){
+  var q=curQ(),c=S.counts.slice(),idx=indexOf(c);
+  if(S.round===1){S.res[S.qi]={first:c,firstIdx:idx};}else{S.res[S.qi].second=c;S.res[S.qi].secondIdx=idx;}
+  var r=S.res[S.qi],side;
+  if(S.round===1){
+    side=el("div",{class:"panel"},[el("span",{class:"label",text:"同心指數"}),el("div",{class:"index"},[el("b",{text:String(idx)}),el("span",{text:"/ 100"})]),
+      el("p",{class:"note",text:idx>=80?"大家想法很接近。討論看看，大家選的理由也一樣嗎？":"想法分散，這很正常。接下來討論 1 分鐘。"}),
+      el("button",{class:"primary",autofocus:"",onclick:function(){go("discuss")},text:"開始討論"})]);
+  }else{
+    side=el("div",{class:"panel"},[el("span",{class:"label",text:"同心指數．討論前後"}),vsBlock(r.firstIdx,r.secondIdx),
+      el("p",{class:"note",text:r.secondIdx>r.firstIdx?"討論後更一致了。":"指數沒有上升，這正是復盤時值得聊的地方。"}),
+      el("button",{class:"primary",autofocus:"",onclick:function(){if(S.qi===0){S.qi=1;S.round=1;openVoting();go("ask");}else go("result");},text:S.qi===0?"第 2 題":"看總結果"})]);
+  }
+  app.append(header("主持人．第 "+(S.qi+1)+" 題．"+(S.round===1?"第一次結果":"討論後結果")),
+    el("div",{class:"lockstage"},[el("div",{class:"panel"},[el("span",{class:"label",text:"作答分佈（匿名）"}),el("p",{class:"lead",text:q.q}),distBlock(q,c)]),side]));
+},
+discuss:function(){
+  var timer=el("div",{class:"timer",text:"1:00"});
+  app.append(header("主持人．第 "+(S.qi+1)+" 題．討論"),
+    el("div",{class:"lockstage"},[
+      el("div",{class:"panel"},[el("span",{class:"label",text:"討論 1 分鐘"}),el("p",{class:"q",text:"選不同答案的人，願意的話各說一句你的理由。"}),
+        el("p",{class:"lead",text:"目標不是說服別人，而是找出「我們團隊」最認同的做法。"})]),
+      el("div",{class:"panel"},[el("span",{class:"label",text:"倒數"}),timer,
+        el("button",{class:"primary",onclick:function(){S.round=2;openVoting();go("ask")},text:"再答一次"})])
+    ]));
+  countdown(60,timer,sEnd,10);
+},
+result:function(){
+  var avg=function(k){return Math.round(S.res.reduce(function(a,r){return a+r[k]},0)/S.res.length)};
+  var diff=avg("secondIdx")-avg("firstIdx");
+  var head=diff>0?el("h1",{},["一分鐘的對話，同心指數提高了 ",el("span",{class:"headline-num",text:diff+" 分"})]):el("h1",{text:"兩題的同心指數"});
+  var rows=S.res.map(function(r,i){var q=S.bank[S.pick[i]];return el("div",{class:"panel"},[el("span",{class:"label",text:"第 "+(i+1)+" 題"}),el("p",{text:q.q}),vsBlock(r.firstIdx,r.secondIdx)]);});
+  app.append(header("主持人．結果與復盤"),head,el("div",{class:"grid2"},rows),
+    el("div",{class:"grid2"},[
+      el("div",{class:"panel"},[el("span",{class:"label",text:"復盤 1"}),el("p",{class:"q",text:"第一次看到分佈時，哪個答案讓你最意外？"})]),
+      el("div",{class:"panel"},[el("span",{class:"label",text:"復盤 2"}),el("p",{class:"q",text:"工作中，有哪些事我們以為有共識，其實沒有？"})])
+    ]),
+    el("div",{class:"panel"},[el("span",{class:"label",text:"回到提案"}),el("p",{class:"lead",text:"大家原本各有想法，短短一分鐘的對話就讓團隊更一致。正式的團建活動會用貴公司的真實情境，把這種對齊變成日常習慣。"})]),
+    el("div",{class:"row"},[el("button",{onclick:function(){go("setup")},text:"重新開始"})]));
+}
+};
+startPeer();
+go("setup");
+}
+
+/* ================= 玩家手機 ================= */
+function player(id){
+  var P={st:null,choice:-1,key:"",net:"connecting",tries:0},peer=null,conn=null;
+  function render(){
+    app.replaceChildren();var box=el("div",{class:"player wrap"});app.append(box);box.append(header("匿名作答"));
+    if(P.net!=="ok"){box.append(el("p",{class:"wait",text:P.net==="failed"?"連不上主持人":"正在連線…"}),
+      el("p",{class:"note",text:P.net==="failed"?"請確認主持人的畫面還開著，或改用公司以外的網路（例如手機行動網路）再試一次。":"請稍等幾秒。"}),
+      P.net==="failed"?el("button",{class:"primary",onclick:function(){P.tries=0;connect();},text:"重新連線"}):null);return;}
+    var st=P.st;
+    if(!st||st.done){box.append(el("p",{class:"wait",text:st&&st.done?"遊戲結束，謝謝參與！":"已連線，等主持人出題"}),el("p",{class:"note",text:"題目出現時，這裡會自動顯示選項。"}));return;}
+    if(st.key!==P.key){P.key=st.key;P.choice=-1;}
+    if(!st.open){box.append(el("p",{class:"wait",text:P.choice>=0?"作答已截止，請看主持人畫面":"請看主持人畫面"}),
+      P.choice>=0?el("p",{class:"note",text:"你選了 "+KEYS[P.choice]+"。"}):null);return;}
+    box.append(el("span",{class:"label",text:st.label}),el("p",{class:"q",style:"font-size:24px",text:st.q}),
+      el("div",{class:"vote"},st.o.map(function(t,i){return el("button",{class:P.choice===i?"sel":"",onclick:function(){vote(i)}},[el("span",{class:"k",text:KEYS[i]}),el("span",{text:t})]);})),
+      el("p",{class:"note",text:P.choice>=0?"已送出。公布結果前都可以改選。":"答案只會被計入人數，沒有人看得到是誰選的。"}));
+  }
+  function vote(i){P.choice=i;try{conn.send({t:"vote",key:P.key,c:i});}catch(e){}render();}
+  function connect(){
+    if(typeof Peer==="undefined"){P.net="failed";render();return;}
+    P.net="connecting";render();
+    try{if(peer)peer.destroy();}catch(e){}
+    peer=new Peer(popts());
+    peer.on("open",function(){conn=peer.connect(PREFIX+id,{reliable:true});
+      var t=setTimeout(function(){if(P.net!=="ok")retry();},10000);
+      conn.on("open",function(){clearTimeout(t);P.net="ok";P.tries=0;render();});
+      conn.on("data",function(d){if(d&&d.t==="state"){P.st=d;render();}});
+      conn.on("close",function(){P.net="connecting";render();retry();});
+    });
+    peer.on("error",function(){retry();});
+  }
+  function retry(){P.tries++;if(P.tries>3){P.net="failed";render();return;}setTimeout(connect,1500*P.tries);}
+  connect();
+}
+})();
