@@ -244,17 +244,23 @@ pledgePick:function(){
 pledge:function(){
   var timer=el("div",{class:"timer",text:fmt((PL.deadline-Date.now())/1000)}),n=el("span",{class:"live",text:String(PL.items.length)});
   var stage=el("div",{class:"bubbles","aria-live":"polite"}),empty=el("p",{class:"note bempty",text:"大家送出的文字會出現在這裡。"});stage.append(empty);
-  var bodies=[],cols=["b1","b2","b3"];
+  var bodies=[],cols=["b1","b2","b3"],GAP=8,baseH=0;
+  function clear(x,y,d){for(var k=0;k<bodies.length;k++){var o=bodies[k],dx=(o.x+o.w/2)-(x+d/2),dy=(o.y+o.w/2)-(y+d/2);if(Math.sqrt(dx*dx+dy*dy)<o.w/2+d/2+GAP)return false;}return true;}
+  function grow(){if(!baseH)baseH=stage.clientHeight;var W=stage.clientWidth,sum=0,mx=0;bodies.forEach(function(o){sum+=o.w*o.w;mx=Math.max(mx,o.w);});
+    var need=Math.max(baseH,Math.ceil(sum*1.9/Math.max(1,W)),mx+2*GAP);if(need>stage.clientHeight)stage.style.height=need+"px";}
   function add(tx){empty.hidden=true;n.textContent=String(PL.items.length);
     var sp=el("span",{text:tx}),inner=el("div",{class:"btxt"},[sp]),b=el("div",{class:"bubble "+cols[bodies.length%3]},[inner]);stage.append(b);
-    var W=stage.clientWidth,H=stage.clientHeight,cap=Math.max(160,Math.min(440,H-10,W-10)),d=130;
+    var W=stage.clientWidth,cap=Math.max(160,Math.min(440,W-20)),d=130;
     inner.style.fontSize=(tx.length>90?16:tx.length>40?18:20)+"px";
     function fit(){b.style.width=b.style.height=d+"px";return sp.offsetHeight<=inner.clientHeight+1&&sp.scrollWidth<=inner.clientWidth+1;}
     while(!fit()&&d<cap)d+=8;
     if(!fit()){var fs=parseFloat(inner.style.fontSize);while(!fit()&&fs>12){fs-=1;inner.style.fontSize=fs+"px";}}
-    var w=d,h=d;
-    var a=Math.random()*Math.PI*2,sp=0.35+Math.random()*0.35;
-    bodies.push({n:b,x:Math.random()*Math.max(1,W-w),y:Math.random()*Math.max(1,H-h),vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,w:w,h:h});}
+    var o={n:b,w:d,h:d,x:0,y:0};bodies.push(o);grow();
+    var H=stage.clientHeight,ok=false;bodies.pop();
+    for(var t=0;t<400&&!ok;t++){o.x=Math.random()*Math.max(1,W-d);o.y=Math.random()*Math.max(1,H-d);ok=clear(o.x,o.y,d);}
+    if(!ok){var bottom=0;bodies.forEach(function(q){bottom=Math.max(bottom,q.y+q.w);});o.x=Math.random()*Math.max(1,W-d);o.y=bottom+GAP;stage.style.height=(o.y+d+GAP)+"px";}
+    var ang=Math.random()*Math.PI*2,spd=0.35+Math.random()*0.35;o.vx=Math.cos(ang)*spd;o.vy=Math.sin(ang)*spd;
+    bodies.push(o);o.n.style.transform="translate("+o.x+"px,"+o.y+"px)";}
   PL.onAdd=add;
   app.append(header("主持人．我願意的行動"),
     el("div",{class:"panel plhead"},[
@@ -271,12 +277,14 @@ pledge:function(){
       if(o.x<0){o.x=0;o.vx=Math.abs(o.vx);}if(o.x>W-o.w){o.x=Math.max(0,W-o.w);o.vx=-Math.abs(o.vx);}
       if(o.y<0){o.y=0;o.vy=Math.abs(o.vy);}if(o.y>H-o.h){o.y=Math.max(0,H-o.h);o.vy=-Math.abs(o.vy);}
     });
+    for(var it=0;it<6;it++){var any=false;
     for(var i=0;i<bodies.length;i++)for(var j=i+1;j<bodies.length;j++){var A=bodies[i],B=bodies[j];
-      var ra=A.w/2,rb=B.w/2,dx=(B.x+rb)-(A.x+ra),dy=(B.y+rb)-(A.y+ra),dd=Math.sqrt(dx*dx+dy*dy)||0.01,ov=ra+rb-dd;if(ov<=0)continue;
+      var ra=A.w/2,rb=B.w/2,dx=(B.x+rb)-(A.x+ra),dy=(B.y+rb)-(A.y+ra),dd=Math.sqrt(dx*dx+dy*dy)||0.01,ov=ra+rb+GAP-dd;if(ov<=0)continue;any=true;
       var nx=dx/dd,ny=dy/dd;A.x-=nx*ov/2;A.y-=ny*ov/2;B.x+=nx*ov/2;B.y+=ny*ov/2;
-      var va=A.vx*nx+A.vy*ny,vb=B.vx*nx+B.vy*ny;if(va-vb>0){A.vx+=(vb-va)*nx;A.vy+=(vb-va)*ny;B.vx+=(va-vb)*nx;B.vy+=(va-vb)*ny;}}
-    bodies.forEach(function(o){o.x=Math.max(0,Math.min(o.x,W-o.w));o.y=Math.max(0,Math.min(o.y,H-o.h));
-      o.n.style.transform="translate("+o.x.toFixed(1)+"px,"+o.y.toFixed(1)+"px)";});
+      if(it===0){var va=A.vx*nx+A.vy*ny,vb=B.vx*nx+B.vy*ny;if(va-vb>0){A.vx+=(vb-va)*nx;A.vy+=(vb-va)*ny;B.vx+=(va-vb)*nx;B.vy+=(va-vb)*ny;}}}
+    bodies.forEach(function(o){o.x=Math.max(0,Math.min(o.x,W-o.w));o.y=Math.max(0,Math.min(o.y,H-o.h));});
+    if(!any)break;}
+    bodies.forEach(function(o){o.n.style.transform="translate("+o.x.toFixed(1)+"px,"+o.y.toFixed(1)+"px)";});
     requestAnimationFrame(step);})(last);
 }
 };
