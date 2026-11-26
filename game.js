@@ -144,7 +144,8 @@ reveal:function(){
   if(S.round===1){
     side=el("div",{class:"panel"},[el("span",{class:"label",text:"同心指數"}),el("div",{class:"index"},[el("b",{text:String(idx)}),el("span",{text:"/ 100"})]),
       el("p",{class:"note",text:idx>=80?"大家想法很接近。討論看看，大家選的理由也一樣嗎？":"想法分散，這很正常。接下來討論 1 分鐘。"}),
-      el("button",{class:"primary",autofocus:"",onclick:function(){go("discuss")},text:"開始討論"})]);
+      el("button",{class:"primary",autofocus:"",onclick:function(){go("discuss")},text:"開始討論"}),
+      el("button",{onclick:function(){S.res[S.qi].skipped=true;if(S.qi===0){S.qi=1;S.round=1;openVoting();go("ask");}else go("result");},text:S.qi===0?"跳過，直接到第 2 題":"跳過，直接看總結果"})]);
   }else{
     side=el("div",{class:"panel"},[el("span",{class:"label",text:"同心指數．討論前後"}),vsBlock(r.firstIdx,r.secondIdx),
       el("p",{class:"note",text:r.secondIdx>r.firstIdx?"討論後更一致了。":"指數沒有上升，這正是復盤時值得聊的地方。"}),
@@ -165,10 +166,12 @@ discuss:function(){
   countdown(60,timer,sEnd,10);
 },
 result:function(){
-  var avg=function(k){return Math.round(S.res.reduce(function(a,r){return a+r[k]},0)/S.res.length)};
+  var both=S.res.filter(function(r){return !r.skipped&&r.secondIdx!=null});
+  var avg=function(k){return both.length?Math.round(both.reduce(function(a,r){return a+r[k]},0)/both.length):0};
   var diff=avg("secondIdx")-avg("firstIdx");
   var head=diff>0?el("h1",{},["一分鐘的對話，同心指數提高了 ",el("span",{class:"headline-num",text:diff+" 分"})]):el("h1",{text:"兩題的同心指數"});
-  var rows=S.res.map(function(r,i){var q=S.bank[S.pick[i]];return el("div",{class:"panel"},[el("span",{class:"label",text:"第 "+(i+1)+" 題"}),el("p",{text:q.q}),vsBlock(r.firstIdx,r.secondIdx)]);});
+  var rows=S.res.map(function(r,i){var q=S.bank[S.pick[i]];return el("div",{class:"panel"},[el("span",{class:"label",text:"第 "+(i+1)+" 題"}),el("p",{text:q.q}),
+    r.skipped?el("div",{},[el("div",{class:"index"},[el("b",{text:String(r.firstIdx)}),el("span",{text:"/ 100"})]),el("p",{class:"note",text:"這題跳過了討論，只作答一次。"})]):vsBlock(r.firstIdx,r.secondIdx)]);});
   app.append(header("主持人．結果與復盤"),head,el("div",{class:"grid2"},rows),
     el("div",{class:"grid2"},[
       el("div",{class:"panel"},[el("span",{class:"label",text:"復盤 1"}),el("p",{class:"q",text:"第一次看到分佈時，哪個答案讓你最意外？"})]),
